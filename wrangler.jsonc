@@ -2,9 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "courant",
   "compatibility_date": "2026-11-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "ai": { "binding": "AI" },
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "main": ".open-next/worker.js",
+  "ai": { "binding": "AI" },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
@@ -13,22 +13,16 @@
     {
       "binding": "DB",
       "database_name": "courant-prod",
-      "database_id": "PENDING_D1_ID",
+      "database_id": "7409f7a2-e0c5-4828-af35-b6f7961db37a",
       "migrations_dir": "migrations"
     }
   ],
   "r2_buckets": [
     { "binding": "USER_FILES", "bucket_name": "courant-assets" }
   ],
-  "kv_namespaces": [
-    { "binding": "CACHE", "id": "PENDING_KV_ID" }
-  ],
-  "ratelimits": [
-    { "name": "RL_GENERAL", "namespace_id": "PENDING_RL_ID", "simple": { "limit": 60, "period": 60 } }
-  ],
   "vars": {
     "CF_ACCOUNT_ID": "6d5166b8b31547608cbbba06affc288b",
-    "NEXT_PUBLIC_APP_URL": "https://courant.nagara.cloud"
+    "NEXT_PUBLIC_APP_URL": "https://courant.protheolabs-ai-router.workers.dev"
   },
   "observability": { "enabled": true }
 }
