@@ -4,7 +4,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { videos } from "@/database/schema";
 import { PAGE_DEFAULT_LIMIT } from "@/lib/constants";
 import { trpc } from "@/trpc/client";
-import { useAuth } from "@clerk/nextjs";
 import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { VideoRowCard } from "../components/video-row-card";
@@ -34,8 +33,6 @@ const SuggestionsSectionSuspense = ({
   videoId,
   isManual,
 }: SuggestionsSectionProps) => {
-  const { isSignedIn } = useAuth();
-
   const utils = trpc.useUtils();
   // const router = useRouter();
   const [suggestions, query] =

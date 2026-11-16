@@ -2,7 +2,7 @@ import { AlertTriangleIcon } from "lucide-react";
 import { VideoGetOneOutput } from "../../types";
 
 interface VideoBannerProps {
-  status: VideoGetOneOutput["muxStatus"];
+  status: VideoGetOneOutput["streamStatus"];
 }
 
 export const VideoBanner = ({ status }: VideoBannerProps) => {

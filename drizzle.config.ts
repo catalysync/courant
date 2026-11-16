@@ -1,13 +1,11 @@
-import dotenv from "dotenv";
 import { defineConfig } from "drizzle-kit";
 
-dotenv.config({ path: ".env.local" });
-
 export default defineConfig({
-  out: "./drizzle",
+  dialect: "sqlite",
   schema: "./database/schema.ts",
-  dialect: "postgresql",
+  out: "./migrations",
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    // D1 only needs the URL for `drizzle-kit studio`; migrations are generated offline.
+    url: process.env.DATABASE_URL ?? ":memory:",
   },
 });

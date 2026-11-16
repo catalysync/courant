@@ -6,11 +6,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/user-avatar";
-import { useUser } from "@clerk/nextjs";
+import { useSession } from "@/lib/auth-client";
 import Link from "next/link";
 
 export const StudioSidebarHeader = () => {
-  const { user } = useUser();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const { state } = useSidebar();
 
@@ -31,8 +32,8 @@ export const StudioSidebarHeader = () => {
         <SidebarMenuButton tooltip="Your profile" asChild>
           <Link prefetch href="/users/current">
             <UserAvatar
-              imageUrl={user.imageUrl}
-              name={user.fullName ?? "User"}
+              imageUrl={user.image}
+              name={user.name ?? "User"}
               size="xs"
             />
             <span className="text-sm">Your profile</span>
@@ -46,15 +47,15 @@ export const StudioSidebarHeader = () => {
     <SidebarHeader className="flex items-center justify-center pb-4">
       <Link prefetch href="/users/current">
         <UserAvatar
-          imageUrl={user?.imageUrl}
-          name={user?.fullName ?? "User"}
+          imageUrl={user?.image}
+          name={user?.name ?? "User"}
           className="size-[112px] hover:opacity-80 transition-opacity"
         />
       </Link>
 
       <div className="flex flex-col items-center mt-2 gap-y-2">
         <p className="text-sm font-medium">Your profile</p>
-        <p className="text-xs text-muted-foreground">{user.fullName}</p>
+        <p className="text-xs text-muted-foreground">{user.name}</p>
       </div>
     </SidebarHeader>
   );

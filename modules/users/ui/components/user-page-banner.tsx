@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { UserGetOneOutput } from "../../types";
-import { useAuth } from "@clerk/nextjs";
+import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Edit2Icon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,7 +14,8 @@ export const UserPageBannerSkeleton = () => {
 };
 
 export const UserPageBanner = ({ user }: UserPageBannerProps) => {
-  const { userId } = useAuth();
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
 
   return (
     <div className="relative group">
@@ -29,7 +30,7 @@ export const UserPageBanner = ({ user }: UserPageBannerProps) => {
           backgroundImage: user.bannerUrl ? `${user.bannerUrl}` : undefined,
         }}
       >
-        {user.clerkId === userId ? (
+        {user.id === userId ? (
           <Button
             type="button"
             size="icon"

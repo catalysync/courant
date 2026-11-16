@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface SubscriptionItemProps {
   name: string;
-  avatarUrl: string;
+  avatarUrl: string | null;
   subscriberCount: number;
   onUnSubscribe: () => void;
   disabled: boolean;

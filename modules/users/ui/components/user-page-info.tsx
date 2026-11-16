@@ -1,11 +1,12 @@
 import { cn } from "@/lib/utils";
 import { UserGetOneOutput } from "../../types";
-import { useAuth, useClerk } from "@clerk/nextjs";
+import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Edit2Icon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/user-avatar";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { SubscriptionButton } from "@/modules/subscriptions/ui/components/subscription-button";
 import { useSubscription } from "@/modules/subscriptions/hooks/use-subscription";
 
@@ -44,14 +45,15 @@ export const UserPageInfoSkeleton = () => {
 };
 
 export const UserPageInfo = ({ user }: UserPageInfoProps) => {
-  const { userId, isLoaded } = useAuth();
+  const { data: session, isPending: isLoaded } = useSession();
+  const userId = session?.user?.id;
 
   const { isPending, onClick } = useSubscription({
     userId: user.id,
-    isSubscribed: user.viewerSubscibed,
+    isSubscribed: user.viewerSubscribed,
   });
 
-  const clerk = useClerk();
+  const router = useRouter();
 
   return (
     <div className="py-6">
@@ -60,12 +62,12 @@ export const UserPageInfo = ({ user }: UserPageInfoProps) => {
         <div className="flex items-center gap-3">
           <UserAvatar
             size="lg"
-            imageUrl={user.imageUrl}
+            imageUrl={user.image}
             name={user.name}
             className="h-[60px] w-[60px]"
             onClick={() => {
-              if (user.clerkId === userId) {
-                clerk.openUserProfile();
+              if (user.id === userId) {
+                router.push("/users/current");
               }
             }}
           />
@@ -79,7 +81,7 @@ export const UserPageInfo = ({ user }: UserPageInfoProps) => {
             </div>
           </div>
         </div>
-        {userId == user.clerkId ? (
+        {userId == user.id ? (
           <Button
             variant="secondary"
             asChild
@@ -93,7 +95,7 @@ export const UserPageInfo = ({ user }: UserPageInfoProps) => {
           <SubscriptionButton
             onClick={onClick}
             disabled={isPending || !isLoaded}
-            isSubscribed={user.viewerSubscibed}
+            isSubscribed={user.viewerSubscribed}
             className="w-full mt-3"
           />
         )}
@@ -103,15 +105,15 @@ export const UserPageInfo = ({ user }: UserPageInfoProps) => {
       <div className="hidden md:flex items-start gap-4">
         <UserAvatar
           size="xl"
-          imageUrl={user.imageUrl}
+          imageUrl={user.image}
           name={user.name}
           className={cn(
-            user.clerkId === userId &&
+            user.id === userId &&
               "cursor-pointer hover:opacity-80 transition-opacity duration-300",
           )}
           onClick={() => {
-            if (user.clerkId === userId) {
-              clerk.openUserProfile();
+            if (user.id === userId) {
+              router.push("/users/current");
             }
           }}
         />
@@ -123,7 +125,7 @@ export const UserPageInfo = ({ user }: UserPageInfoProps) => {
             <span>{user.videoCount} videos</span>
           </div>
 
-          {userId == user.clerkId ? (
+          {userId == user.id ? (
             <Button variant="secondary" asChild className="mt-3 rounded-full">
               <Link prefetch href="/studio">
                 Go to studio
@@ -133,7 +135,7 @@ export const UserPageInfo = ({ user }: UserPageInfoProps) => {
             <SubscriptionButton
               onClick={onClick}
               disabled={isPending || !isLoaded}
-              isSubscribed={user.viewerSubscibed}
+              isSubscribed={user.viewerSubscribed}
               className="mt-3"
             />
           )}

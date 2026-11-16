@@ -1,6 +1,6 @@
 import { database } from "@/database";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
-import { subscriptions, users, videos } from "@/database/schema";
+import { subscriptions, user, videos } from "@/database/schema";
 import { z } from "zod";
 import { and, desc, eq, getTableColumns, lt, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -11,7 +11,7 @@ export const subscriptionsRouter = createTRPCRouter({
       z.object({
         cursor: z
           .object({
-            creatorId: z.string().uuid(),
+            creatorId: z.string(),
             updatedAt: z.date(),
           })
           .nullish(),
@@ -26,10 +26,10 @@ export const subscriptionsRouter = createTRPCRouter({
         .select({
           ...getTableColumns(subscriptions),
           user: {
-            ...getTableColumns(users),
+            ...getTableColumns(user),
             subscriberCount: database.$count(
               subscriptions,
-              eq(subscriptions.creatorId, users.id),
+              eq(subscriptions.creatorId, user.id),
             ),
           },
         })
@@ -48,23 +48,15 @@ export const subscriptionsRouter = createTRPCRouter({
               : undefined,
           ),
         )
-        .innerJoin(users, eq(subscriptions.creatorId, users.id))
+        .innerJoin(user, eq(subscriptions.creatorId, user.id))
         .orderBy(desc(subscriptions.updatedAt))
-
         .limit(limit + 1);
 
       const hasMore = subscriptionsList.length > limit;
-
-      const items = hasMore
-        ? subscriptionsList.slice(0, -1)
-        : subscriptionsList;
+      const items = hasMore ? subscriptionsList.slice(0, -1) : subscriptionsList;
       const lastItem = items[items.length - 1];
-
       const nextCursor = hasMore
-        ? {
-            creatorId: lastItem.creatorId,
-            updatedAt: lastItem.updatedAt,
-          }
+        ? { creatorId: lastItem.creatorId, updatedAt: lastItem.updatedAt }
         : null;
 
       return { items, nextCursor };
@@ -73,16 +65,14 @@ export const subscriptionsRouter = createTRPCRouter({
   create: protectedProcedure
     .input(
       z.object({
-        userId: z.string().uuid(),
+        userId: z.string().min(1),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       const { userId } = input;
 
       if (userId === ctx.user.id) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-        });
+        throw new TRPCError({ code: "BAD_REQUEST" });
       }
 
       const [createdSubscription] = await database
@@ -98,25 +88,20 @@ export const subscriptionsRouter = createTRPCRouter({
   remove: protectedProcedure
     .input(
       z.object({
-        userId: z.string().uuid(),
+        userId: z.string().min(1),
       }),
     )
     .mutation(async ({ input, ctx }) => {
       const { userId } = input;
 
       if (userId === ctx.user.id) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-        });
+        throw new TRPCError({ code: "BAD_REQUEST" });
       }
 
       const [deletedSubscription] = await database
         .delete(subscriptions)
         .where(
-          and(
-            eq(subscriptions.viewerId, ctx.user.id),
-            eq(subscriptions.creatorId, userId),
-          ),
+          and(eq(subscriptions.viewerId, ctx.user.id), eq(subscriptions.creatorId, userId)),
         )
         .returning();
 

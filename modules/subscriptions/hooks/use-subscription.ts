@@ -1,5 +1,5 @@
 import { trpc } from "@/trpc/client";
-import { useClerk } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 interface UseSubscriptionProps {
   userId: string;
@@ -12,7 +12,7 @@ export const useSubscription = ({
   isSubscribed,
   fromVideoId,
 }: UseSubscriptionProps) => {
-  const clerk = useClerk();
+  const router = useRouter();
   const utils = trpc.useUtils();
 
   const subscribe = trpc.subscriptions.create.useMutation({
@@ -26,7 +26,7 @@ export const useSubscription = ({
     },
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED") {
-        clerk.openSignIn();
+        router.push("/sign-in");
       }
     },
   });
@@ -41,7 +41,7 @@ export const useSubscription = ({
     },
     onError: (error) => {
       if (error.data?.code === "UNAUTHORIZED") {
-        clerk.openSignIn();
+        router.push("/sign-in");
       }
     },
   });

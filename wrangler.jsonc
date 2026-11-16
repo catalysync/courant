@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "courant",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": ".open-next/worker.js",
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "courant-prod",
+      "database_id": "PENDING_D1_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "USER_FILES", "bucket_name": "courant-assets" }
+  ],
+  "kv_namespaces": [
+    { "binding": "CACHE", "id": "PENDING_KV_ID" }
+  ],
+  "ratelimits": [
+    { "name": "RL_GENERAL", "namespace_id": "PENDING_RL_ID", "simple": { "limit": 60, "period": 60 } }
+  ],
+  "vars": {
+    "CF_ACCOUNT_ID": "6d5166b8b31547608cbbba06affc288b",
+    "NEXT_PUBLIC_APP_URL": "https://courant.nagara.cloud"
+  },
+  "observability": { "enabled": true }
+}

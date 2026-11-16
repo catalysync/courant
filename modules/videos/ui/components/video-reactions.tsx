@@ -3,7 +3,7 @@ import { VideoGetOneOutput } from "../../types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import { useClerk } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { trpc } from "@/trpc/client";
 import { videoReactions } from "../../../../database/schema";
 import { TRPCClientError } from "@trpc/client";
@@ -21,7 +21,7 @@ export const VideoReactions = ({
   dislikes,
   viewerReaction,
 }: VideoReactionsProps) => {
-  const clerk = useClerk();
+  const router = useRouter();
   const utils = trpc.useUtils();
 
   const like = trpc.videoReactions.like.useMutation({
@@ -30,7 +30,7 @@ export const VideoReactions = ({
     },
     onError: (error: any) => {
       if (error.data?.code === "UNAUTHORIZED") {
-        clerk.openSignIn();
+        router.push("/sign-in");
       }
     },
   });
@@ -41,7 +41,7 @@ export const VideoReactions = ({
     },
     onError: (error: any) => {
       if (error.data?.code === "UNAUTHORIZED") {
-        clerk.openSignIn();
+        router.push("/sign-in");
       }
     },
   });

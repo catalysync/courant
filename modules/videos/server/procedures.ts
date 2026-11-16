@@ -1,16 +1,12 @@
 import { database } from "@/database";
 import {
-  baseProcedure,
-  createTRPCRouter,
-  protectedProcedure,
-} from "@/trpc/init";
-import {
   subscriptions,
-  users,
+  user,
   videoReactions,
   videos,
   videoUpdateSchema,
 } from "@/database/schema";
+import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
@@ -18,22 +14,20 @@ import {
   desc,
   eq,
   getTableColumns,
-  inArray,
   isNotNull,
   lt,
   or,
+  sql,
 } from "drizzle-orm";
-import { videoViews, videoVisibility } from "../../../database/schema";
-import { mux } from "@/lib/mux";
-import { Input } from "postcss";
-import { CarTaxiFront } from "lucide-react";
+import { videoViews } from "../../../database/schema";
+import { stream } from "@/lib/stream";
 
 export const videosRouter = createTRPCRouter({
   getMany: baseProcedure
     .input(
       z.object({
         categoryId: z.string().uuid().nullish(),
-        userId: z.string().uuid().nullish(),
+        userId: z.string().nullish(),
         cursor: z
           .object({
             id: z.string().uuid(),
@@ -49,24 +43,15 @@ export const videosRouter = createTRPCRouter({
       const videosList = await database
         .select({
           ...getTableColumns(videos),
-          user: users,
-          viewCount: database.$count(
-            videoViews,
-            eq(videoViews.videoId, videos.id),
-          ),
+          user,
+          viewCount: database.$count(videoViews, eq(videoViews.videoId, videos.id)),
           likeCount: database.$count(
             videoReactions,
-            and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like"),
-            ),
+            and(eq(videoReactions.videoId, videos.id), eq(videoReactions.type, "like")),
           ),
           dislikeCount: database.$count(
             videoReactions,
-            and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike"),
-            ),
+            and(eq(videoReactions.videoId, videos.id), eq(videoReactions.type, "dislike")),
           ),
         })
         .from(videos)
@@ -78,29 +63,20 @@ export const videosRouter = createTRPCRouter({
             cursor
               ? or(
                   lt(videos.updatedAt, cursor.updatedAt),
-                  and(
-                    eq(videos.updatedAt, cursor.updatedAt),
-                    lt(videos.id, cursor.id),
-                  ),
+                  and(eq(videos.updatedAt, cursor.updatedAt), lt(videos.id, cursor.id)),
                 )
               : undefined,
           ),
         )
-        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(user, eq(videos.userId, user.id))
         .orderBy(desc(videos.updatedAt), desc(videos.id))
-
         .limit(limit + 1);
 
       const hasMore = videosList.length > limit;
-
       const items = hasMore ? videosList.slice(0, -1) : videosList;
       const lastItem = items[items.length - 1];
-
       const nextCursor = hasMore
-        ? {
-            id: lastItem.id,
-            updatedAt: lastItem.updatedAt,
-          }
+        ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
         : null;
 
       return { items, nextCursor };
@@ -121,29 +97,20 @@ export const videosRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const { cursor, limit } = input;
 
-      const viewCountSubquery = database.$count(
-        videoViews,
-        eq(videoViews.videoId, videos.id),
-      );
+      const viewCountSubquery = database.$count(videoViews, eq(videoViews.videoId, videos.id));
 
       const videosList = await database
         .select({
           ...getTableColumns(videos),
-          user: users,
+          user,
           viewCount: viewCountSubquery,
           likeCount: database.$count(
             videoReactions,
-            and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like"),
-            ),
+            and(eq(videoReactions.videoId, videos.id), eq(videoReactions.type, "like")),
           ),
           dislikeCount: database.$count(
             videoReactions,
-            and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike"),
-            ),
+            and(eq(videoReactions.videoId, videos.id), eq(videoReactions.type, "dislike")),
           ),
         })
         .from(videos)
@@ -153,33 +120,25 @@ export const videosRouter = createTRPCRouter({
             cursor
               ? or(
                   lt(viewCountSubquery, cursor.viewCount),
-                  and(
-                    eq(viewCountSubquery, cursor.viewCount),
-                    lt(videos.id, cursor.id),
-                  ),
+                  and(eq(viewCountSubquery, cursor.viewCount), lt(videos.id, cursor.id)),
                 )
               : undefined,
           ),
         )
-        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(user, eq(videos.userId, user.id))
         .orderBy(desc(viewCountSubquery), desc(videos.id))
-
         .limit(limit + 1);
 
       const hasMore = videosList.length > limit;
-
       const items = hasMore ? videosList.slice(0, -1) : videosList;
       const lastItem = items[items.length - 1];
-
       const nextCursor = hasMore
-        ? {
-            id: lastItem.id,
-            viewCount: lastItem.viewCount,
-          }
+        ? { id: lastItem.id, viewCount: lastItem.viewCount }
         : null;
 
       return { items, nextCursor };
     }),
+
   getManySubscribed: protectedProcedure
     .input(
       z.object({
@@ -198,9 +157,7 @@ export const videosRouter = createTRPCRouter({
 
       const viewerSubscriptions = database.$with("subscriptions").as(
         database
-          .select({
-            userId: subscriptions.creatorId,
-          })
+          .select({ userId: subscriptions.creatorId })
           .from(subscriptions)
           .where(eq(subscriptions.viewerId, userId)),
       );
@@ -208,24 +165,15 @@ export const videosRouter = createTRPCRouter({
       const videosList = await database
         .select({
           ...getTableColumns(videos),
-          user: users,
-          viewCount: database.$count(
-            videoViews,
-            eq(videoViews.videoId, videos.id),
-          ),
+          user,
+          viewCount: database.$count(videoViews, eq(videoViews.videoId, videos.id)),
           likeCount: database.$count(
             videoReactions,
-            and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "like"),
-            ),
+            and(eq(videoReactions.videoId, videos.id), eq(videoReactions.type, "like")),
           ),
           dislikeCount: database.$count(
             videoReactions,
-            and(
-              eq(videoReactions.videoId, videos.id),
-              eq(videoReactions.type, "dislike"),
-            ),
+            and(eq(videoReactions.videoId, videos.id), eq(videoReactions.type, "dislike")),
           ),
         })
         .from(videos)
@@ -235,43 +183,28 @@ export const videosRouter = createTRPCRouter({
             cursor
               ? or(
                   lt(videos.updatedAt, cursor.updatedAt),
-                  and(
-                    eq(videos.updatedAt, cursor.updatedAt),
-                    lt(videos.id, cursor.id),
-                  ),
+                  and(eq(videos.updatedAt, cursor.updatedAt), lt(videos.id, cursor.id)),
                 )
               : undefined,
           ),
         )
-        .innerJoin(users, eq(videos.userId, users.id))
-        .innerJoin(
-          viewerSubscriptions,
-          eq(viewerSubscriptions.userId, users.id),
-        )
+        .innerJoin(user, eq(videos.userId, user.id))
+        .innerJoin(viewerSubscriptions, eq(viewerSubscriptions.userId, user.id))
         .orderBy(desc(videos.updatedAt), desc(videos.id))
-
         .limit(limit + 1);
 
       const hasMore = videosList.length > limit;
-
       const items = hasMore ? videosList.slice(0, -1) : videosList;
       const lastItem = items[items.length - 1];
-
       const nextCursor = hasMore
-        ? {
-            id: lastItem.id,
-            updatedAt: lastItem.updatedAt,
-          }
+        ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
         : null;
 
       return { items, nextCursor };
     }),
+
   remove: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-      }),
-    )
+    .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.user;
 
@@ -284,8 +217,18 @@ export const videosRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
+      // Best-effort cleanup of the Stream asset.
+      if (deletedVideo.streamUid) {
+        try {
+          await stream.deleteVideo(deletedVideo.streamUid);
+        } catch {
+          /* non-fatal */
+        }
+      }
+
       return deletedVideo;
     }),
+
   update: protectedProcedure
     .input(videoUpdateSchema)
     .mutation(async ({ ctx, input }) => {
@@ -313,74 +256,45 @@ export const videosRouter = createTRPCRouter({
 
       return updatedVideo;
     }),
+
   create: protectedProcedure.mutation(async ({ ctx }) => {
     const { id: userId } = ctx.user;
 
-    const upload = await mux.video.uploads.create({
-      new_asset_settings: {
-        passthrough: userId,
-        playback_policies: ["public"],
-        inputs: [
-          {
-            generated_subtitles: [
-              {
-                language_code: "en",
-                name: "English",
-              },
-            ],
-          },
-        ],
-      },
-      cors_origin: "*",
-    });
+    const upload = await stream.directUpload({ creator: userId });
 
     const [video] = await database
       .insert(videos)
       .values({
         userId,
-        title: "Untitled Unmastered",
-        muxStatus: "waiting",
-        muxUploadId: upload.id,
+        title: "Untitled video",
+        streamStatus: "pendingupload",
+        streamUid: upload.uid,
       })
       .returning();
 
-    return { video, url: upload.url };
+    return { video, url: upload.uploadURL };
   }),
+
   getOne: baseProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-      }),
-    )
+    .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      const { clerkUserId } = ctx;
-
-      let userId;
-
-      const [user] = await database
-        .select()
-        .from(users)
-        .where(inArray(users.clerkId, clerkUserId ? [clerkUserId] : []));
-
-      if (user) {
-        userId = user.id;
-      }
+      const userId = ctx.session?.user?.id;
 
       const viewerReactions = database.$with("viewer_reactions").as(
         database
           .select({
-            videoId: videoReactions.userId,
+            videoId: videoReactions.videoId,
             type: videoReactions.type,
           })
           .from(videoReactions)
-          .where(inArray(videoReactions.userId, userId ? [userId] : [])),
+          .where(userId ? eq(videoReactions.userId, userId) : sql`0`),
       );
 
       const viewerSubscriptions = database.$with("subscriptions").as(
         database
           .select()
           .from(subscriptions)
-          .where(inArray(subscriptions.viewerId, userId ? [userId] : [])),
+          .where(userId ? eq(subscriptions.viewerId, userId) : sql`0`),
       );
 
       const [existingVideo] = await database
@@ -388,43 +302,25 @@ export const videosRouter = createTRPCRouter({
         .select({
           ...getTableColumns(videos),
           user: {
-            ...getTableColumns(users),
-            subscriberCount: database.$count(
-              subscriptions,
-              eq(subscriptions.creatorId, users.id),
-            ),
-            viewerSubscibed: isNotNull(viewerSubscriptions.viewerId).mapWith(
-              Boolean,
-            ),
+            ...getTableColumns(user),
+            subscriberCount: database.$count(subscriptions, eq(subscriptions.creatorId, user.id)),
+            viewerSubscribed: isNotNull(viewerSubscriptions.viewerId).mapWith(Boolean),
           },
-          videoViews: database.$count(
-            videoViews,
-            eq(videoViews.videoId, videos.id),
-          ),
+          videoViews: database.$count(videoViews, eq(videoViews.videoId, videos.id)),
           likeCount: database.$count(
             videoReactions,
-            and(
-              eq(videoViews.videoId, videos.id),
-              eq(videoReactions.type, "like"),
-            ),
+            and(eq(videoReactions.videoId, videos.id), eq(videoReactions.type, "like")),
           ),
           dislikeCount: database.$count(
             videoReactions,
-            and(
-              eq(videoViews.videoId, videos.id),
-              eq(videoReactions.type, "dislike"),
-            ),
+            and(eq(videoReactions.videoId, videos.id), eq(videoReactions.type, "dislike")),
           ),
           viewerReaction: viewerReactions.type,
         })
         .from(videos)
-        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(user, eq(videos.userId, user.id))
         .leftJoin(viewerReactions, eq(viewerReactions.videoId, videos.id))
-        .leftJoin(videoViews, eq(videoViews.videoId, videos.id))
-        .leftJoin(
-          viewerSubscriptions,
-          eq(viewerSubscriptions.creatorId, users.id),
-        )
+        .leftJoin(viewerSubscriptions, eq(viewerSubscriptions.creatorId, user.id))
         .where(eq(videos.id, input.id));
 
       if (!existingVideo) {
@@ -433,12 +329,9 @@ export const videosRouter = createTRPCRouter({
 
       return existingVideo;
     }),
+
   revalidate: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-      }),
-    )
+    .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.user;
 
@@ -451,34 +344,22 @@ export const videosRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
-      if (!existingVideo.muxUploadId) {
+      if (!existingVideo.streamUid) {
         throw new TRPCError({ code: "BAD_REQUEST" });
       }
 
-      const directUpload = await mux.video.uploads.retrieve(
-        existingVideo.muxUploadId,
-      );
-
-      if (!directUpload || !directUpload.asset_id) {
-        throw new TRPCError({ code: "BAD_REQUEST" });
-      }
-
-      const asset = await mux.video.assets.retrieve(directUpload.asset_id);
+      const asset = await stream.getVideo(existingVideo.streamUid);
 
       if (!asset) {
         throw new TRPCError({ code: "BAD_REQUEST" });
       }
-
-      const playbackId = asset.playback_ids?.[0].id;
 
       const duration = asset.duration ? Math.round(asset.duration * 1000) : 0;
 
       const [updatedVideo] = await database
         .update(videos)
         .set({
-          muxStatus: asset.status,
-          muxPlaybackId: playbackId,
-          muxAssetId: asset.id,
+          streamStatus: asset.status?.state ?? existingVideo.streamStatus,
           duration,
         })
         .where(and(eq(videos.id, input.id), eq(videos.userId, userId)))

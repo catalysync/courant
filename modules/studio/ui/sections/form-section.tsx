@@ -229,7 +229,7 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
             <div className="flex flex-col gap-4 bg-[#F9F9F9] rounded-xl overflow-hidden h-fit">
               <div className="aspect-video overflow-hidden relative">
                 <VideoPlayer
-                  playbackId={video.muxPlaybackId}
+                  uid={video.streamUid}
                   thumbnailUrl={video.thumbnailUrl}
                 />
               </div>
@@ -261,7 +261,7 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
                     <p className="text-muted-foreground text-xs">
                       Video status
                     </p>
-                    <p className="text-sm">{video.muxStatus || "preparing"}</p>
+                    <p className="text-sm">{video.streamStatus || "preparing"}</p>
                   </div>
                 </div>
 
@@ -271,7 +271,7 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
                       Subtitles status
                     </p>
                     <p className="text-sm">
-                      {video.muxTrackStatus || "No subtitles"}
+                      {video.streamStatus === "ready" ? "Auto captions (English)" : "No captions"}
                     </p>
                   </div>
                 </div>

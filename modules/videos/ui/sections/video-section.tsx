@@ -6,7 +6,7 @@ import { trpc } from "@/trpc/client";
 import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { VideoBanner } from "../components/video-banner";
-import { useAuth } from "@clerk/nextjs";
+import { useSession } from "@/lib/auth-client";
 import { VideoTopRow } from "../components/video-top-row";
 import { VideoPlayer } from "../components/video-player";
 
@@ -29,7 +29,8 @@ const VideoSkeleton = () => {
 };
 
 const VideoSectionSuspense = ({ videoId }: VideoSectionProps) => {
-  const { isSignedIn } = useAuth();
+  const { data: session } = useSession();
+  const isSignedIn = !!session?.user;
 
   const utils = trpc.useUtils();
   // const router = useRouter();
@@ -63,17 +64,17 @@ const VideoSectionSuspense = ({ videoId }: VideoSectionProps) => {
       <div
         className={cn(
           "aspect-video bg-black rounded-xl overflow-hidden relative",
-          video.muxStatus !== "ready" && "rounded-b-none",
+          video.streamStatus !== "ready" && "rounded-b-none",
         )}
       >
         <VideoPlayer
           autoPlay
           onPlay={handlePlay}
-          playbackId={video.muxPlaybackId}
+          uid={video.streamUid}
           thumbnailUrl={video.thumbnailUrl}
         />
       </div>
-      <VideoBanner status={video.muxStatus} />
+      <VideoBanner status={video.streamStatus} />
       <VideoTopRow video={video} />
     </>
   );

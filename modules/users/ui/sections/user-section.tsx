@@ -2,7 +2,6 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/trpc/client";
-import { useAuth } from "@clerk/nextjs";
 import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import {

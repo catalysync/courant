@@ -1,0 +1,23 @@
+# Copy to .dev.vars for local dev (git-ignored). Real values go in via `wrangler secret put`.
+# Server runtime config (read by lib/auth.ts, lib/stream.ts).
+
+# Better Auth signing secret (>= 32 chars: `openssl rand -base64 48`)
+BETTER_AUTH_SECRET=
+
+# Cloudflare API token + account (Stream / provisioning)
+CF_ACCOUNT_ID=6d5166b8b31547608cbbba06affc288b
+CF_API_TOKEN=
+
+# OAuth (optional; provider is only offered when both are set)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# Cloudflare Stream webhook verification secret (account-wide)
+STREAM_WEBHOOK_SECRET=
+
+# App origin (also inlined into the client bundle at build time)
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+# Stream customer subdomain code (public) — set after Stream is activated
+NEXT_PUBLIC_STREAM_CUSTOMER_CODE=

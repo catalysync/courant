@@ -67,7 +67,7 @@ export const SubscriptionsSection = () => {
                     >
                       <UserAvatar
                         size="xs"
-                        imageUrl={subscription.user.imageUrl}
+                        imageUrl={subscription.user.image}
                         name={subscription.user.name}
                       />
                       <span className="text-sm">{subscription.user.name}</span>

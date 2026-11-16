@@ -1,138 +1,66 @@
 import { database } from "@/database";
 import { videos } from "@/database/schema";
-import { mux } from "@/lib/mux";
-import {
-  VideoAssetCreatedWebhookEvent,
-  VideoAssetDeletedWebhookEvent,
-  VideoAssetErroredWebhookEvent,
-  VideoAssetReadyWebhookEvent,
-  VideoAssetTrackReadyWebhookEvent,
-} from "@mux/mux-node/resources/webhooks.mjs";
+import { verifyStreamWebhook, previewUrl, thumbnailUrl } from "@/lib/stream";
 import { eq } from "drizzle-orm";
 
-const MUX_WEBHOOK_SIGNING_SECRET = process.env.MUX_WEBHOOK_SIGNING_SECRET;
+const STREAM_WEBHOOK_SECRET = process.env.STREAM_WEBHOOK_SECRET;
 
-type WebhookEvent =
-  | VideoAssetCreatedWebhookEvent
-  | VideoAssetReadyWebhookEvent
-  | VideoAssetErroredWebhookEvent
-  | VideoAssetTrackReadyWebhookEvent
-  | VideoAssetDeletedWebhookEvent;
+type StreamWebhookEvent = {
+  uid: string;
+  status?: { state: string; errorReasonCode?: string; errorReasonText?: string };
+  duration?: number;
+  thumbnail?: string;
+  preview?: string;
+};
 
 export const POST = async (req: Request) => {
-  if (!MUX_WEBHOOK_SIGNING_SECRET) {
-    throw new Error("MUX_WEBHOOK_SECRET is not set");
+  if (!STREAM_WEBHOOK_SECRET) {
+    return new Response("STREAM_WEBHOOK_SECRET is not set", { status: 500 });
   }
 
-  const payload = await req.json();
-  const body = await JSON.stringify(payload);
-  const headerPayload = await req.headers;
-  const muxSignature = headerPayload.get("mux-signature");
+  const rawBody = await req.text();
+  const signature = req.headers.get("webhook-signature");
 
-  if (!muxSignature) {
-    console.log(headerPayload);
-    return new Response("Missing Svix headers", { status: 401 });
+  if (!verifyStreamWebhook(rawBody, signature, STREAM_WEBHOOK_SECRET)) {
+    return new Response("Invalid signature", { status: 401 });
   }
 
-  mux.webhooks.verifySignature(body, headerPayload, MUX_WEBHOOK_SIGNING_SECRET);
+  let payload: StreamWebhookEvent;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
 
-  switch (payload.type as WebhookEvent["type"]) {
-    case "video.asset.created": {
-      const data = payload.data as VideoAssetCreatedWebhookEvent["data"];
-      if (!data.upload_id) {
-        return new Response("No upload ID found", { status: 400 });
-      }
-      // update video status and asset in db
+  const { uid, status, duration } = payload;
+
+  switch (status?.state) {
+    case "ready": {
       await database
         .update(videos)
         .set({
-          muxAssetId: data.id,
-          muxStatus: data.status,
+          streamStatus: "ready",
+          duration: duration ? Math.round(duration * 1000) : 0,
+          thumbnailUrl: thumbnailUrl(uid),
+          previewUrl: previewUrl(uid),
         })
-        .where(eq(videos.muxUploadId, data.upload_id));
+        .where(eq(videos.streamUid, uid));
       break;
     }
-    case "video.asset.ready": {
-      const data = payload.data as VideoAssetReadyWebhookEvent["data"];
-      const playbackId = data.playback_ids?.[0].id;
-
-      if (!data.upload_id) {
-        return new Response("Missing playback ID", { status: 400 });
-      }
-
-      if (!playbackId) {
-        return new Response("Missing playback ID", { status: 400 });
-      }
-
-      const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg`;
-      const previewUrl = `https://image.mux.com/${playbackId}/animated.gif`;
-
-      const duration = data.duration ? Math.round(data.duration * 1000) : 0;
-
-      // update video status, thumbnail url and asset in db
+    case "error": {
       await database
         .update(videos)
-        .set({
-          muxAssetId: data.id,
-          muxStatus: data.status,
-          muxPlaybackId: playbackId,
-          thumbnailUrl: thumbnailUrl,
-          previewUrl: previewUrl,
-          duration,
-        })
-        .where(eq(videos.muxUploadId, data.upload_id));
+        .set({ streamStatus: "error" })
+        .where(eq(videos.streamUid, uid));
       break;
     }
-    case "video.asset.errored":
-      const data = payload.data as VideoAssetErroredWebhookEvent["data"];
-
-      if (!data.upload_id) {
-        return new Response("Missing playback ID", { status: 400 });
-      }
-
+    default: {
       await database
         .update(videos)
-        .set({
-          muxStatus: data.status,
-        })
-        .where(eq(videos.muxUploadId, data.upload_id));
-      break;
-    case "video.asset.deleted": {
-      const data = payload.data as VideoAssetDeletedWebhookEvent["data"];
-
-      if (!data.upload_id) {
-        return new Response("Missing playback ID", { status: 400 });
-      }
-
-      await database
-        .delete(videos)
-        .where(eq(videos.muxUploadId, data.upload_id));
+        .set({ streamStatus: status?.state ?? "pendingupload" })
+        .where(eq(videos.streamUid, uid));
       break;
     }
-    case "video.asset.track.ready": {
-      const data = payload.data as VideoAssetTrackReadyWebhookEvent["data"] & {
-        asset_id: string;
-      };
-
-      const assetId = data.asset_id;
-      const trackId = data.id;
-      const status = data.status;
-
-      if (!data.asset_id) {
-        return new Response("Missing Asset ID", { status: 400 });
-      }
-
-      await database
-        .update(videos)
-        .set({
-          muxTrackId: trackId,
-          muxTrackStatus: status,
-        })
-        .where(eq(videos.muxAssetId, assetId));
-      break;
-    }
-    default:
-      break;
   }
 
   return new Response(null, { status: 200 });

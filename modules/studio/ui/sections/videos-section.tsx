@@ -153,7 +153,7 @@ export const VideosSectionSuspense = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center">{video.muxStatus}</div>
+                      <div className="flex items-center">{video.streamStatus}</div>
                     </TableCell>
                     <TableCell className="text-sm truncate">
                       {format(new Date(video.createdAt), "d MMM yyyy")}
