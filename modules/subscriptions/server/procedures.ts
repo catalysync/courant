@@ -4,6 +4,7 @@ import { subscriptions, user, videos } from "@/database/schema";
 import { z } from "zod";
 import { and, desc, eq, getTableColumns, lt, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import { createNotification } from "@/modules/notifications/server/procedures";
 
 export const subscriptionsRouter = createTRPCRouter({
   getMany: protectedProcedure
@@ -82,6 +83,16 @@ export const subscriptionsRouter = createTRPCRouter({
           creatorId: userId,
         })
         .returning();
+
+      try {
+        await createNotification({
+          userId,
+          actorId: ctx.user.id,
+          type: "new_subscriber",
+        });
+      } catch {
+        /* non-fatal */
+      }
 
       return createdSubscription;
     }),

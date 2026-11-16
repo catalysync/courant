@@ -3,6 +3,7 @@
   "name": "courant",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
+  "ai": { "binding": "AI" },
   "main": ".open-next/worker.js",
   "assets": {
     "directory": ".open-next/assets",

@@ -2,13 +2,14 @@
 
 import Hls from "hls.js";
 import { useEffect, useRef } from "react";
-import { hlsUrl } from "@/lib/stream";
+import { hlsUrl } from "@/lib/stream-urls";
 
 interface VideoPlayerProps {
   uid?: string | null | undefined;
   thumbnailUrl?: string | null | undefined;
   autoPlay?: boolean;
   onPlay?: () => void;
+  onTimeUpdate?: (current: number, total: number) => void;
   className?: string;
 }
 
@@ -21,6 +22,7 @@ export const VideoPlayer = ({
   thumbnailUrl,
   autoPlay,
   onPlay,
+  onTimeUpdate,
   className,
 }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -60,6 +62,10 @@ export const VideoPlayer = ({
       playsInline
       preload={autoPlay ? "auto" : "metadata"}
       onPlay={onPlay}
+      onTimeUpdate={(e) => {
+        const el = e.currentTarget;
+        onTimeUpdate?.(el.currentTime, el.duration || 0);
+      }}
     />
   );
 };

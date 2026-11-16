@@ -1,6 +1,6 @@
 import { database } from "@/database";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
-import { videoViews } from "@/database/schema";
+import { videoViews, videoWatchEvents } from "@/database/schema";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 
@@ -18,9 +18,7 @@ export const videoViewsRouter = createTRPCRouter({
       const [existingVideoView] = await database
         .select()
         .from(videoViews)
-        .where(
-          and(eq(videoViews.videoId, videoId), eq(videoViews.userId, userId)),
-        );
+        .where(and(eq(videoViews.videoId, videoId), eq(videoViews.userId, userId)));
 
       if (existingVideoView) {
         return existingVideoView;
@@ -28,12 +26,35 @@ export const videoViewsRouter = createTRPCRouter({
 
       const [newVideoView] = await database
         .insert(videoViews)
-        .values({
-          userId,
-          videoId,
-        })
+        .values({ userId, videoId })
         .returning();
 
       return newVideoView;
+    }),
+
+  /** Record a watch-progress heartbeat (powers creator watch-time analytics). */
+  recordWatch: protectedProcedure
+    .input(
+      z.object({
+        videoId: z.string().uuid(),
+        watchSeconds: z.number().min(0),
+        totalSeconds: z.number().min(0),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { id: userId } = ctx.user;
+      const { videoId, watchSeconds, totalSeconds } = input;
+
+      const [event] = await database
+        .insert(videoWatchEvents)
+        .values({
+          userId,
+          videoId,
+          watchSeconds: Math.round(watchSeconds),
+          totalSeconds: Math.round(totalSeconds),
+        })
+        .returning();
+
+      return event;
     }),
 });

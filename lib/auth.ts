@@ -25,12 +25,22 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
   };
 }
 
+/** Comma/space-separated list of emails promoted to admin at account creation. */
+const adminEmails = new Set(
+  (process.env.ADMIN_EMAILS ?? "")
+    .split(/[\s,;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => /^[^@\s]+@[^@\s]+$/.test(e)),
+);
+
 export const auth = betterAuth({
   appName: "Courant",
   baseURL: appOrigin,
   secret: process.env.BETTER_AUTH_SECRET!,
   trustedOrigins: [appOrigin],
-  database: drizzleAdapter(getDatabase(), { provider: "sqlite", schema }),
+  // Lazy: getDatabase() resolves the D1 binding via getCloudflareContext(), which is only
+  // available at request time (not during `next build` page-data collection).
+  database: () => drizzleAdapter(getDatabase(), { provider: "sqlite", schema }),
   emailAndPassword: {
     enabled: true,
     autoSignIn: true,
@@ -45,6 +55,23 @@ export const auth = betterAuth({
       bannerKey: { type: "string", required: false, input: false },
     },
     deleteUser: { enabled: true },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          const email = String(user.email ?? "").toLowerCase();
+          return {
+            data: {
+              ...user,
+              email,
+              // Never admin at creation unless the email is in ADMIN_EMAILS.
+              role: adminEmails.has(email) ? "admin" : "user",
+            },
+          };
+        },
+      },
+    },
   },
   advanced: {
     // Cookies survive the Next.js -> Workers boundary; Secure is forced in production.

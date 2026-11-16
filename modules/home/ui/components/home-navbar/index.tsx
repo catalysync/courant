@@ -2,6 +2,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import Link from "next/link";
 import { SearchInput } from "./search-input";
 import { AuthButton } from "@/modules/auth/ui/components/auth-button";
+import { NotificationsBell } from "@/modules/notifications/ui/components/notifications-bell";
 
 export const HomeNavbar = () => {
   return (
@@ -20,6 +21,7 @@ export const HomeNavbar = () => {
         </div>
 
         <div className="flex-shrink-0 items-center flex gap-4">
+          <NotificationsBell />
           <AuthButton />
         </div>
       </div>

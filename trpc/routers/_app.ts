@@ -11,6 +11,9 @@ import { suggestionsRouter } from "@/modules/suggestions/server/procedures";
 import { commentsRouter } from "@/modules/comments/server/procedures";
 import { commentReactionsRouter } from "@/modules/comment-reactions/server/procedures";
 import { playlistsRouter } from "@/modules/playlists/server/procedures";
+import { adminRouter } from "@/modules/admin/server/procedures";
+import { analyticsRouter } from "@/modules/analytics/server/procedures";
+import { notificationsRouter } from "@/modules/notifications/server/procedures";
 
 export const appRouter = createTRPCRouter({
   users: usersRouter,
@@ -25,6 +28,9 @@ export const appRouter = createTRPCRouter({
   comments: commentsRouter,
   commentReactions: commentReactionsRouter,
   playlists: playlistsRouter,
+  admin: adminRouter,
+  analytics: analyticsRouter,
+  notifications: notificationsRouter,
 });
 // export type definition of API
 export type AppRouter = typeof appRouter;

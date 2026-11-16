@@ -37,3 +37,10 @@ export const protectedProcedure = t.procedure.use(async function isAuthed(opts) 
     },
   });
 });
+
+export const adminProcedure = protectedProcedure.use(async (opts) => {
+  if (opts.ctx.user.role !== "admin") {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return opts.next();
+});

@@ -1,31 +1,19 @@
+import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+export { hlsUrl, thumbnailUrl, previewUrl, STREAM_CUSTOMER_CODE } from "./stream-urls";
+
 /**
- * Minimal Cloudflare Stream client (REST API). Replaces `@mux/mux-node`.
+ * Minimal Cloudflare Stream client (REST API) + webhook verification. Server-only.
  *
  * Requires:
  *  - CF_ACCOUNT_ID (or CLOUDFLARE_ACCOUNT_ID)
  *  - CF_API_TOKEN (or STREAM_API_TOKEN / CLOUDFLARE_API_TOKEN)
- *  - NEXT_PUBLIC_STREAM_CUSTOMER_CODE (public; used by the client player for HLS URLs)
  */
 
 const ACCOUNT_ID = process.env.CF_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID;
 const API_TOKEN =
   process.env.STREAM_API_TOKEN ?? process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN;
-
-export const STREAM_CUSTOMER_CODE = process.env.NEXT_PUBLIC_STREAM_CUSTOMER_CODE ?? "";
-
-export function hlsUrl(uid: string): string {
-  return `https://customer-${STREAM_CUSTOMER_CODE}.cloudflarestream.com/${uid}/manifest/video.m3u8`;
-}
-
-export function thumbnailUrl(uid: string, time = "0s"): string {
-  return `https://customer-${STREAM_CUSTOMER_CODE}.cloudflarestream.com/${uid}/thumbnails/thumbnail.jpg?time=${time}`;
-}
-
-export function previewUrl(uid: string): string {
-  return `https://customer-${STREAM_CUSTOMER_CODE}.cloudflarestream.com/${uid}/thumbnails/thumbnail.gif`;
-}
 
 export type StreamUpload = {
   uploadURL: string;
@@ -76,7 +64,6 @@ export const stream = {
       body: JSON.stringify({
         maxDurationSeconds: input.maxDurationSeconds ?? 3600,
         creator: input.creator,
-        // AI captions are generated for English by default.
       }),
     })) as StreamUpload;
     return result;

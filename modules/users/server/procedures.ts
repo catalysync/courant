@@ -1,6 +1,6 @@
 import { database } from "@/database";
 import { subscriptions, user, videos } from "@/database/schema";
-import { baseProcedure, createTRPCRouter } from "@/trpc/init";
+import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { and, eq, getTableColumns, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -45,5 +45,46 @@ export const usersRouter = createTRPCRouter({
       }
 
       return existingUser;
+    }),
+
+  /** Update the current user's channel banner (url comes from R2 via /api/uploads). */
+  updateBanner: protectedProcedure
+    .input(
+      z.object({
+        url: z.string().min(1),
+        key: z.string().nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [updated] = await database
+        .update(user)
+        .set({
+          bannerUrl: input.url,
+          bannerKey: input.key ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, ctx.user.id))
+        .returning();
+
+      if (!updated) throw new TRPCError({ code: "NOT_FOUND" });
+      return updated;
+    }),
+
+  /** Update the current user's avatar (url comes from R2 via /api/uploads). */
+  updateAvatar: protectedProcedure
+    .input(
+      z.object({
+        url: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [updated] = await database
+        .update(user)
+        .set({ image: input.url, updatedAt: new Date() })
+        .where(eq(user.id, ctx.user.id))
+        .returning();
+
+      if (!updated) throw new TRPCError({ code: "NOT_FOUND" });
+      return updated;
     }),
 });

@@ -3,8 +3,10 @@ import {
   commentReactions,
   comments,
   user,
+  videos,
 } from "@/database/schema";
 import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
+import { createNotification } from "@/modules/notifications/server/procedures";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
@@ -71,6 +73,35 @@ export const commentsRouter = createTRPCRouter({
         .insert(comments)
         .values({ userId, videoId, parentId, value })
         .returning();
+
+      // Notify the recipient (video owner for top-level, parent author for replies).
+      try {
+        if (parentId && existingComment && existingComment.userId !== userId) {
+          await createNotification({
+            userId: existingComment.userId,
+            actorId: userId,
+            type: "comment_reply",
+            videoId,
+            commentId: createdComment.id,
+          });
+        } else if (!parentId) {
+          const [video] = await database
+            .select({ userId: videos.userId })
+            .from(videos)
+            .where(eq(videos.id, videoId));
+          if (video && video.userId !== userId) {
+            await createNotification({
+              userId: video.userId,
+              actorId: userId,
+              type: "new_comment",
+              videoId,
+              commentId: createdComment.id,
+            });
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
 
       return createdComment;
     }),

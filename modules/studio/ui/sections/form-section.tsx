@@ -41,6 +41,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import { toast } from "sonner";
 import { z } from "zod";
 import { VideoPlayer } from "@/modules/videos/ui/components/video-player";
+import { ThumbnailUploadModal } from "@/modules/studio/ui/components/thumbnail-upload-modal";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
@@ -107,12 +108,37 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
     },
   });
 
+  const generateTitle = trpc.studio.generateTitle.useMutation({
+    onSuccess: (data) => {
+      form.setValue("title", data.title, { shouldDirty: true });
+      toast.success("Title generated");
+    },
+    onError: () => toast.error("Generation failed"),
+  });
+
+  const generateDescription = trpc.studio.generateDescription.useMutation({
+    onSuccess: (data) => {
+      form.setValue("description", data.description, { shouldDirty: true });
+      toast.success("Description generated");
+    },
+    onError: () => toast.error("Generation failed"),
+  });
+
+  const generateThumbnail = trpc.studio.generateThumbnail.useMutation({
+    onSuccess: () => {
+      utils.studio.getOne.invalidate({ id: videoId });
+      toast.success("Thumbnail generated");
+    },
+    onError: () => toast.error("Generation failed"),
+  });
+
   const onSubmit = async (data: z.infer<typeof videoUpdateSchema>) => {
     await update.mutateAsync(data);
   };
 
   const fullUrl = `${process.env.VERCEL_URL || "http://localhost:3000"}/videos/${videoId}`;
   const [isCopied, setIsCopied] = useState(false);
+  const [thumbnailOpen, setThumbnailOpen] = useState(false);
 
   const onCopy = async () => {
     await navigator.clipboard.writeText(fullUrl);
@@ -125,6 +151,11 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
 
   return (
     <Form {...form}>
+      <ThumbnailUploadModal
+        open={thumbnailOpen}
+        onOpenChange={setThumbnailOpen}
+        videoId={videoId}
+      />
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -167,7 +198,24 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Title</FormLabel>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      disabled={generateTitle.isPending}
+                      onClick={() =>
+                        generateTitle.mutate({
+                          description:
+                            form.getValues("description") ?? form.getValues("title") ?? "",
+                        })
+                      }
+                    >
+                      Generate
+                    </Button>
+                  </div>
                   <FormControl>
                     <Input {...field} placeholder="Add a title to your video" />
                   </FormControl>
@@ -181,7 +229,23 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Description</FormLabel>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      disabled={generateDescription.isPending}
+                      onClick={() =>
+                        generateDescription.mutate({
+                          title: form.getValues("title") ?? "",
+                        })
+                      }
+                    >
+                      Generate
+                    </Button>
+                  </div>
                   <FormControl>
                     <Textarea
                       {...field}
@@ -273,6 +337,39 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
                     <p className="text-sm">
                       {video.streamStatus === "ready" ? "Auto captions (English)" : "No captions"}
                     </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <div className="flex flex-col gap-y-1">
+                    <p className="text-muted-foreground text-xs">Thumbnail</p>
+                    <p className="text-sm">
+                      {video.thumbnailKey ? "Custom thumbnail" : "Auto-generated"}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={generateThumbnail.isPending}
+                      onClick={() =>
+                        generateThumbnail.mutate({
+                          videoId,
+                          prompt: `${video.title} — cinematic thumbnail, high quality`,
+                        })
+                      }
+                    >
+                      AI
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setThumbnailOpen(true)}
+                    >
+                      Upload
+                    </Button>
                   </div>
                 </div>
               </div>

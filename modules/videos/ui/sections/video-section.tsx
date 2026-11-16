@@ -3,7 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/trpc/client";
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { VideoBanner } from "../components/video-banner";
 import { useSession } from "@/lib/auth-client";
@@ -42,10 +42,25 @@ const VideoSectionSuspense = ({ videoId }: VideoSectionProps) => {
     },
   });
 
+  const recordWatch = trpc.videoViews.recordWatch.useMutation();
+  const lastWatchAt = useRef(0);
+
   const handlePlay = () => {
     if (!isSignedIn) return;
 
     createView.mutate({ videoId });
+  };
+
+  const handleTimeUpdate = (current: number, total: number) => {
+    if (!isSignedIn) return;
+    const now = Date.now();
+    if (now - lastWatchAt.current < 10_000) return;
+    lastWatchAt.current = now;
+    recordWatch.mutate({
+      videoId,
+      watchSeconds: Math.floor(current),
+      totalSeconds: Math.floor(total),
+    });
   };
 
   // const onSelect = (value: string | null) => {
@@ -70,6 +85,7 @@ const VideoSectionSuspense = ({ videoId }: VideoSectionProps) => {
         <VideoPlayer
           autoPlay
           onPlay={handlePlay}
+          onTimeUpdate={handleTimeUpdate}
           uid={video.streamUid}
           thumbnailUrl={video.thumbnailUrl}
         />

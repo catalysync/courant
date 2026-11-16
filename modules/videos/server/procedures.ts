@@ -21,6 +21,7 @@ import {
 } from "drizzle-orm";
 import { videoViews } from "../../../database/schema";
 import { stream } from "@/lib/stream";
+import { createNotification } from "@/modules/notifications/server/procedures";
 
 export const videosRouter = createTRPCRouter({
   getMany: baseProcedure
@@ -238,6 +239,15 @@ export const videosRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST" });
       }
 
+      const [existing] = await database
+        .select({ visibility: videos.visibility })
+        .from(videos)
+        .where(and(eq(videos.id, input.id), eq(videos.userId, userId)));
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
       const [updatedVideo] = await database
         .update(videos)
         .set({
@@ -248,6 +258,55 @@ export const videosRouter = createTRPCRouter({
           updatedAt: new Date(),
         })
         .where(and(eq(videos.id, input.id), eq(videos.userId, userId)))
+        .returning();
+
+      if (!updatedVideo) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      // Notify subscribers when a video is first published.
+      if (existing.visibility === "private" && input.visibility === "public") {
+        try {
+          const subs = await database
+            .select({ viewerId: subscriptions.viewerId })
+            .from(subscriptions)
+            .where(eq(subscriptions.creatorId, userId));
+          for (const s of subs) {
+            await createNotification({
+              userId: s.viewerId,
+              actorId: userId,
+              type: "new_video",
+              videoId: updatedVideo.id,
+            });
+          }
+        } catch {
+          /* non-fatal */
+        }
+      }
+
+      return updatedVideo;
+    }),
+
+  /** Set a custom thumbnail (url from R2 via /api/uploads). */
+  updateThumbnail: protectedProcedure
+    .input(
+      z.object({
+        videoId: z.string().uuid(),
+        url: z.string().min(1),
+        key: z.string().nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+
+      const [updatedVideo] = await database
+        .update(videos)
+        .set({
+          thumbnailUrl: input.url,
+          thumbnailKey: input.key ?? null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(videos.id, input.videoId), eq(videos.userId, userId)))
         .returning();
 
       if (!updatedVideo) {
