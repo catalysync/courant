@@ -18,8 +18,8 @@ export const HomeSidebar = () => {
     <Sidebar className="pt-16 z-40 border-non" collapsible="icon">
       <SidebarContent className="bg-background">
         <MainSection />
-        {/* <Separator />
-                <PersonalSection /> */}
+        <Separator />
+        <PersonalSection />
         {session?.user && (
           <>
             <Separator />

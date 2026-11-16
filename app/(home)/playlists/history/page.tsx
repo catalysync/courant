@@ -1,0 +1,18 @@
+import { PAGE_DEFAULT_LIMIT } from "@/lib/constants";
+import { HydrateClient, trpc } from "@/trpc/server";
+
+import { HistoryView } from "@/modules/playlists/ui/views/history-view";
+
+export const dynamic = "force-dynamic";
+
+const Page = () => {
+  void trpc.playlists.getHistory.prefetchInfinite({ limit: PAGE_DEFAULT_LIMIT });
+
+  return (
+    <HydrateClient>
+      <HistoryView />
+    </HydrateClient>
+  );
+};
+
+export default Page;

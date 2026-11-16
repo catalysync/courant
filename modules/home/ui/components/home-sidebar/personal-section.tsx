@@ -28,7 +28,7 @@ const items = [
   },
   {
       title: "Playlists",
-      url: "playlists",
+      url: "/playlists",
       icon: ListVideoIcon,
       auth: true
   }
