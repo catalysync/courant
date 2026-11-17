@@ -72,7 +72,7 @@ interface Team {
 export const TeamsSection = () => {
   return (
     <Suspense fallback={<TeamsSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <TeamsSectionSuspense />
       </ErrorBoundary>
     </Suspense>
@@ -234,7 +234,7 @@ const TeamCard = ({ team }: { team: Team }) => {
           <Separator />
           <CardContent className="pt-6">
             <Suspense fallback={<TeamMembersSkeleton />}>
-              <ErrorBoundary fallback={<p>Error...</p>}>
+              <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
                 <TeamMembers team={team} currentUserId={currentUserId} />
               </ErrorBoundary>
             </Suspense>

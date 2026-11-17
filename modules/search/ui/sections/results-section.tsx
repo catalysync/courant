@@ -27,7 +27,7 @@ export const ResultsSection = (props: ResultsSectionProps) => {
       key={`${props.query}-${props.categoryId}`}
       fallback={<ResultsSectionSkeleton />}
     >
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <ResultsSectionSuspense {...props} />
       </ErrorBoundary>
     </Suspense>

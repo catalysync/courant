@@ -14,7 +14,7 @@ import {
 export const SubscriptionsSection = () => {
   return (
     <Suspense fallback={<SubscriptionsSkeleton />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <SubscriptionsSectionSuspense />
       </ErrorBoundary>
     </Suspense>

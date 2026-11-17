@@ -12,7 +12,7 @@ import { PlaylistGridCard, PlaylistGridCardSkeleton } from "../components/playli
 export const PlaylistsSection = () => {
   return (
     <Suspense fallback={<PlaylistsSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <PlaylistsSectionSuspense />
       </ErrorBoundary>
     </Suspense>

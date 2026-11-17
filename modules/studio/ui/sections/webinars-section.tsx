@@ -45,7 +45,7 @@ type Webinar = {
 export const WebinarsSection = () => {
   return (
     <Suspense fallback={<WebinarsSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <WebinarsSectionSuspense />
       </ErrorBoundary>
     </Suspense>
@@ -235,7 +235,7 @@ const WebinarCard = ({ webinar }: { webinar: Webinar }) => {
           <Separator />
           <CardContent className="pt-6">
             <Suspense fallback={<RegistrationsSkeleton />}>
-              <ErrorBoundary fallback={<p>Error...</p>}>
+              <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
                 <Registrations webinarId={webinar.id} />
               </ErrorBoundary>
             </Suspense>

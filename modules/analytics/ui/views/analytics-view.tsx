@@ -146,14 +146,14 @@ export const AnalyticsView = () => {
 
       {selectedVideoId && (
         <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-          <ErrorBoundary fallback={<p>Error...</p>}>
+          <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
             <RetentionSection videoId={selectedVideoId} />
           </ErrorBoundary>
         </Suspense>
       )}
 
       <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-        <ErrorBoundary fallback={<p>Error...</p>}>
+        <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
           <AudienceSection videoId={selectedVideoId} />
         </ErrorBoundary>
       </Suspense>

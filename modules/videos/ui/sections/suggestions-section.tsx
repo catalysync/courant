@@ -18,7 +18,7 @@ interface SuggestionsSectionProps {
 export const SuggestionsSection = ({ videoId }: SuggestionsSectionProps) => {
   return (
     <Suspense fallback={<VideoSkeleton />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <SuggestionsSectionSuspense videoId={videoId} />
       </ErrorBoundary>
     </Suspense>

@@ -51,7 +51,7 @@ interface VideoControlsPanelProps {
 export const VideoControlsPanel = ({ videoId }: VideoControlsPanelProps) => {
   return (
     <Suspense fallback={<Skeleton className="h-64" />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <VideoControlsPanelSuspense videoId={videoId} />
       </ErrorBoundary>
     </Suspense>

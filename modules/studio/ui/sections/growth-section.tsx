@@ -37,7 +37,7 @@ type Category = { id: string; name: string };
 export const GrowthSection = () => {
   return (
     <Suspense fallback={<GrowthSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <GrowthSectionSuspense />
       </ErrorBoundary>
     </Suspense>

@@ -13,7 +13,7 @@ import { VideoRowCard, VideoRowCardSkeleton } from "@/modules/videos/ui/componen
 export const HistoryVideosSection = () => {
   return (
     <Suspense fallback={<HistoryVideosSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <HistoryVideosSectionSuspense />
       </ErrorBoundary>
     </Suspense>

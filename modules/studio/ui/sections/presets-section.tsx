@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 export const PresetsSection = () => {
   return (
     <Suspense fallback={<PresetsSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <PresetsSectionSuspense />
       </ErrorBoundary>
     </Suspense>

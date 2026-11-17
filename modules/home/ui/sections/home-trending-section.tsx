@@ -15,7 +15,7 @@ const SHELF_LIMIT = 8;
 export const HomeTrendingSection = () => {
   return (
     <Suspense fallback={<HomeTrendingSkeleton />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <HomeTrendingSectionSuspense />
       </ErrorBoundary>
     </Suspense>

@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export const BrandingSection = () => {
   return (
     <Suspense fallback={<BrandingSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<div className="py-8 text-center text-sm text-muted-foreground">Something went wrong</div>}>
         <BrandingSectionSuspense />
       </ErrorBoundary>
     </Suspense>
