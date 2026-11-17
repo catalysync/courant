@@ -42,6 +42,9 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { VideoPlayer } from "@/modules/videos/ui/components/video-player";
 import { ThumbnailUploadModal } from "@/modules/studio/ui/components/thumbnail-upload-modal";
+import { VideoPrivacyPanel } from "@/modules/studio/ui/components/video-privacy-panel";
+import { VideoAIPanel } from "@/modules/studio/ui/components/video-ai-panel";
+import { VideoMonetizationPanel } from "@/modules/studio/ui/components/video-monetization-panel";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
@@ -412,6 +415,15 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
           </div>
         </div>
       </form>
+      <div className="mt-10">
+        <VideoPrivacyPanel videoId={videoId} />
+      </div>
+      <div className="mt-10">
+        <VideoAIPanel videoId={videoId} />
+      </div>
+      <div className="mt-10">
+        <VideoMonetizationPanel videoId={videoId} />
+      </div>
     </Form>
   );
 };

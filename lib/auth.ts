@@ -2,6 +2,7 @@ import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getDatabase } from "@/database";
 import * as schema from "@/database/schema";
+import { turnstilePlugin } from "@/lib/turnstile-plugin";
 
 /**
  * Better Auth (self-hosted) on D1. Replaces Clerk. There is no webhook-sync; users, sessions
@@ -9,6 +10,12 @@ import * as schema from "@/database/schema";
  */
 
 const appOrigin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+// Accept both the custom domain and the workers.dev URL (during transition).
+const trustedOrigins = [
+  appOrigin,
+  "https://courant.protheolabs-ai-router.workers.dev",
+].filter((v, i, a) => a.indexOf(v) === i);
 
 const socialProviders: Record<string, unknown> = {};
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
@@ -94,7 +101,7 @@ export const auth = betterAuth({
   appName: "Courant",
   baseURL: appOrigin,
   secret: process.env.BETTER_AUTH_SECRET!,
-  trustedOrigins: [appOrigin],
+  trustedOrigins,
   // Lazy: getDatabase() resolves the D1 binding via getCloudflareContext(), which is only
   // available at request time (not during `next build` page-data collection).
   // NOTE: drizzleAdapter(db, config) returns a *function* `(options) => adapter` in
@@ -111,6 +118,7 @@ export const auth = betterAuth({
     },
   },
   socialProviders,
+  plugins: [turnstilePlugin],
   user: {
     additionalFields: {
       username: { type: "string", required: false, input: true },

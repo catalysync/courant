@@ -11,6 +11,7 @@ import {
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { z } from "zod";
 import { and, count, desc, eq, getTableColumns, gte, sql } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 
 const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -125,4 +126,124 @@ export const analyticsRouter = createTRPCRouter({
 
     return items;
   }),
+
+  /** Retention curve: % of viewers still watching at each 10% point. */
+  getRetention: protectedProcedure
+    .input(z.object({ videoId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [video] = await database.select().from(videos).where(eq(videos.id, input.videoId));
+      if (!video || video.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const rows = await database
+        .select({ maxWatch: sql<number>`MAX(${videoWatchEvents.watchSeconds})` })
+        .from(videoWatchEvents)
+        .where(eq(videoWatchEvents.videoId, input.videoId))
+        .groupBy(videoWatchEvents.userId);
+
+      const total = rows.length;
+      const duration = video.duration || 0;
+      const points = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+      return points.map((percent) => {
+        const sec = duration ? (duration * percent) / 100 : 0;
+        const viewers = rows.filter((r) => Number(r.maxWatch) >= sec).length;
+        return {
+          percent,
+          viewers,
+          retentionPct: total ? Math.round((viewers / total) * 100) : 0,
+        };
+      });
+    }),
+
+  /** Watch events grouped by country. */
+  getGeography: protectedProcedure
+    .input(
+      z.object({
+        videoId: z.string().uuid().nullish(),
+        days: z.number().min(1).max(365).default(30),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      if (input.videoId) {
+        const [video] = await database.select().from(videos).where(eq(videos.id, input.videoId));
+        if (!video || video.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+      const rows = await database
+        .select({ key: videoWatchEvents.country, n: count() })
+        .from(videoWatchEvents)
+        .innerJoin(videos, eq(videoWatchEvents.videoId, videos.id))
+        .where(
+          and(
+            eq(videos.userId, ctx.user.id),
+            gte(videoWatchEvents.createdAt, since),
+            input.videoId ? eq(videoWatchEvents.videoId, input.videoId) : undefined,
+          ),
+        )
+        .groupBy(videoWatchEvents.country);
+      return rows
+        .filter((r): r is { key: string; n: number } => r.key !== null)
+        .sort((a, b) => b.n - a.n);
+    }),
+
+  /** Watch events grouped by device type. */
+  getDevices: protectedProcedure
+    .input(
+      z.object({
+        videoId: z.string().uuid().nullish(),
+        days: z.number().min(1).max(365).default(30),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      if (input.videoId) {
+        const [video] = await database.select().from(videos).where(eq(videos.id, input.videoId));
+        if (!video || video.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+      const rows = await database
+        .select({ key: videoWatchEvents.device, n: count() })
+        .from(videoWatchEvents)
+        .innerJoin(videos, eq(videoWatchEvents.videoId, videos.id))
+        .where(
+          and(
+            eq(videos.userId, ctx.user.id),
+            gte(videoWatchEvents.createdAt, since),
+            input.videoId ? eq(videoWatchEvents.videoId, input.videoId) : undefined,
+          ),
+        )
+        .groupBy(videoWatchEvents.device);
+      return rows
+        .filter((r): r is { key: string; n: number } => r.key !== null)
+        .sort((a, b) => b.n - a.n);
+    }),
+
+  /** Watch events grouped by referrer hostname. */
+  getReferrers: protectedProcedure
+    .input(
+      z.object({
+        videoId: z.string().uuid().nullish(),
+        days: z.number().min(1).max(365).default(30),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      if (input.videoId) {
+        const [video] = await database.select().from(videos).where(eq(videos.id, input.videoId));
+        if (!video || video.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+      const rows = await database
+        .select({ key: videoWatchEvents.referrer, n: count() })
+        .from(videoWatchEvents)
+        .innerJoin(videos, eq(videoWatchEvents.videoId, videos.id))
+        .where(
+          and(
+            eq(videos.userId, ctx.user.id),
+            gte(videoWatchEvents.createdAt, since),
+            input.videoId ? eq(videoWatchEvents.videoId, input.videoId) : undefined,
+          ),
+        )
+        .groupBy(videoWatchEvents.referrer);
+      return rows
+        .filter((r): r is { key: string; n: number } => r.key !== null)
+        .sort((a, b) => b.n - a.n);
+    }),
 });

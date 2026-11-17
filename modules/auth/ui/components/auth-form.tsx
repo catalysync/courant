@@ -1,6 +1,7 @@
 "use client";
 
 import { authClient } from "@/lib/auth-client";
+import { TurnstileWidget } from "./turnstile-widget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,15 +21,25 @@ export const AuthForm = ({ mode }: AuthFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (mode === "sign-up") {
-        await authClient.signUp.email({ name, email, password });
+        await authClient.signUp.email({
+          name,
+          email,
+          password,
+          ...(turnstileToken ? { turnstileToken } : {}),
+        });
       } else {
-        await authClient.signIn.email({ email, password });
+        await authClient.signIn.email({
+          email,
+          password,
+          ...(turnstileToken ? { turnstileToken } : {}),
+        });
       }
       router.push("/");
       router.refresh();
@@ -91,6 +102,8 @@ export const AuthForm = ({ mode }: AuthFormProps) => {
             required
           />
         </div>
+
+        <TurnstileWidget onToken={setTurnstileToken} />
 
         <Button type="submit" className="w-full" disabled={loading}>
           {loading && <Loader2Icon className="size-4 mr-2 animate-spin" />}

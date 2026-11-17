@@ -1,0 +1,11 @@
+{
+  "name": "courant-keepwarm",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-01",
+  "vars": {
+    "HOME_URL": "https://courant.nagara.cloud"
+  },
+  "triggers": {
+    "crons": ["* * * * *"]
+  }
+}

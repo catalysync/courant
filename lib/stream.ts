@@ -34,6 +34,13 @@ export type StreamVideo = {
   creator?: string | null;
 };
 
+export type StreamLiveInput = {
+  uid: string;
+  rtmps?: { url?: string; streamKey?: string };
+  playback?: { hls?: string };
+  status?: string | null;
+};
+
 async function api(path: string, init: RequestInit = {}): Promise<unknown> {
   if (!ACCOUNT_ID || !API_TOKEN) {
     throw new Error("Cloudflare Stream is not configured (CF_ACCOUNT_ID / CF_API_TOKEN).");
@@ -79,6 +86,55 @@ export const stream = {
 
   async deleteVideo(uid: string): Promise<void> {
     await api(`/${uid}`, { method: "DELETE" });
+  },
+
+  // ---- Live inputs ----
+
+  /** Create a Stream live input (RTMP ingest). Returns uid, rtmp url/key, playback hls. */
+  async createLiveInput(meta: { name?: string } = {}): Promise<StreamLiveInput> {
+    const result = (await api("/live_inputs", {
+      method: "POST",
+      body: JSON.stringify({ meta: { name: meta.name ?? "Courant live stream" } }),
+    })) as StreamLiveInput;
+    return result;
+  },
+
+  async getLiveInput(uid: string): Promise<StreamLiveInput | null> {
+    try {
+      return (await api(`/live_inputs/${uid}`)) as StreamLiveInput;
+    } catch {
+      return null;
+    }
+  },
+
+  async deleteLiveInput(uid: string): Promise<void> {
+    await api(`/live_inputs/${uid}`, { method: "DELETE" });
+  },
+
+  // ---- Captions (best-effort; Stream auto-captions) ----
+
+  /** List generated captions for a video. Returns [] (not throw) when unavailable. */
+  async listCaptions(uid: string): Promise<{ language: string; label?: string }[]> {
+    try {
+      const result = (await api(`/${uid}/captions`)) as { language: string; label?: string }[];
+      return Array.isArray(result) ? result : [];
+    } catch {
+      return [];
+    }
+  },
+
+  /** Fetch the WebVTT captions for a language. Returns null when unavailable. */
+  async getCaptionVtt(uid: string, language: string): Promise<string | null> {
+    try {
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/stream/${uid}/captions/${language}/vtt`,
+        { headers: { Authorization: `Bearer ${API_TOKEN}` } },
+      );
+      if (!res.ok) return null;
+      return await res.text();
+    } catch {
+      return null;
+    }
   },
 };
 

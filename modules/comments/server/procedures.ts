@@ -7,6 +7,7 @@ import {
 } from "@/database/schema";
 import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { createNotification } from "@/modules/notifications/server/procedures";
+import { moderateText } from "@/lib/ai";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
@@ -50,10 +51,12 @@ export const commentsRouter = createTRPCRouter({
         parentId: z.string().uuid().nullish(),
         videoId: z.string().uuid(),
         value: z.string().min(1),
+        // Frame-accurate review comment: seconds into the video (null = plain comment).
+        timestampSec: z.number().min(0).max(100000).nullish(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { parentId, videoId, value } = input;
+      const { parentId, videoId, value, timestampSec } = input;
       const { id: userId } = ctx.user;
 
       const [existingComment] = await database
@@ -69,9 +72,20 @@ export const commentsRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST" });
       }
 
+      // Optional AI moderation (off unless MODERATION_ENABLED=1). Fail-open.
+      if (process.env.MODERATION_ENABLED === "1") {
+        const result = await moderateText(value);
+        if (result.flagged) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: result.reason ?? "Comment was flagged by moderation",
+          });
+        }
+      }
+
       const [createdComment] = await database
         .insert(comments)
-        .values({ userId, videoId, parentId, value })
+        .values({ userId, videoId, parentId, value, timestampSec })
         .returning();
 
       // Notify the recipient (video owner for top-level, parent author for replies).

@@ -20,9 +20,14 @@
   "r2_buckets": [
     { "binding": "USER_FILES", "bucket_name": "courant-assets" }
   ],
+  "queues": {
+    "producers": [{ "binding": "JOBS", "queue": "courant-jobs" }]
+  },
   "vars": {
     "CF_ACCOUNT_ID": "6d5166b8b31547608cbbba06affc288b",
-    "NEXT_PUBLIC_APP_URL": "https://courant.protheolabs-ai-router.workers.dev"
+    "NEXT_PUBLIC_APP_URL": "https://courant.nagara.cloud",
+    "NEXT_PUBLIC_SERVICES_URL": "https://courant-services.protheolabs-ai-router.workers.dev",
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY": ""
   },
   "observability": { "enabled": true }
 }

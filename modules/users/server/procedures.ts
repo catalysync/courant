@@ -15,7 +15,10 @@ export const usersRouter = createTRPCRouter({
     .query(async ({ input, ctx }) => {
       const viewerId = ctx.session?.user?.id;
 
-      const viewerSubscriptions = database.$with("subscriptions").as(
+      // NOTE: CTE name must NOT collide with the `subscriptions` table — SQLite
+      // raises "circular reference" when a non-recursive CTE references a base
+      // table of the same name in its own definition (Postgres tolerates this).
+      const viewerSubscriptions = database.$with("viewer_subscriptions").as(
         database
           .select()
           .from(subscriptions)

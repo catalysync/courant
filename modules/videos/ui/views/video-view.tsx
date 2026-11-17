@@ -1,6 +1,8 @@
 import { SuggestionsSection } from "../sections/suggestions-section";
 import { VideoSection } from "../sections/video-section";
 import { CommentsSection } from "../sections/comments-section";
+import { ChaptersSection } from "../sections/chapters-section";
+import { TranscriptSection } from "../sections/transcript-section";
 
 interface VideoViewProps {
   videoId: string;
@@ -15,6 +17,8 @@ export const VideoView = ({ videoId }: VideoViewProps) => {
           <div className="xl:hidden block mt-4">
             <SuggestionsSection videoId={videoId} isManual />
           </div>
+          <ChaptersSection videoId={videoId} />
+          <TranscriptSection videoId={videoId} />
           <CommentsSection videoId={videoId} />
         </div>
         <div className="hidden xl:block w-full xl:w-[380px] 2xl:w-[460px] shrink-1">

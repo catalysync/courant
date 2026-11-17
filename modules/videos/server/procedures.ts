@@ -3,6 +3,7 @@ import {
   subscriptions,
   user,
   videoReactions,
+  videoVersions,
   videos,
   videoUpdateSchema,
 } from "@/database/schema";
@@ -21,6 +22,8 @@ import {
 } from "drizzle-orm";
 import { videoViews } from "../../../database/schema";
 import { stream } from "@/lib/stream";
+import { hlsUrl } from "@/lib/stream-urls";
+import { hashPassword, verifyPassword } from "@/lib/auth";
 import { createNotification } from "@/modules/notifications/server/procedures";
 
 export const videosRouter = createTRPCRouter({
@@ -59,6 +62,7 @@ export const videosRouter = createTRPCRouter({
         .where(
           and(
             eq(videos.visibility, "public"),
+            eq(videos.isUnlisted, false),
             categoryId ? eq(videos.categoryId, categoryId) : undefined,
             userId ? eq(videos.userId, userId) : undefined,
             cursor
@@ -118,6 +122,7 @@ export const videosRouter = createTRPCRouter({
         .where(
           and(
             eq(videos.visibility, "public"),
+            eq(videos.isUnlisted, false),
             cursor
               ? or(
                   lt(viewCountSubquery, cursor.viewCount),
@@ -156,7 +161,8 @@ export const videosRouter = createTRPCRouter({
       const { id: userId } = ctx.user;
       const { cursor, limit } = input;
 
-      const viewerSubscriptions = database.$with("subscriptions").as(
+      // CTE name must not collide with the `subscriptions` table.
+      const viewerSubscriptions = database.$with("viewer_subscriptions").as(
         database
           .select({ userId: subscriptions.creatorId })
           .from(subscriptions)
@@ -164,6 +170,7 @@ export const videosRouter = createTRPCRouter({
       );
 
       const videosList = await database
+        .with(viewerSubscriptions)
         .select({
           ...getTableColumns(videos),
           user,
@@ -181,6 +188,7 @@ export const videosRouter = createTRPCRouter({
         .where(
           and(
             eq(videos.visibility, "public"),
+            eq(videos.isUnlisted, false),
             cursor
               ? or(
                   lt(videos.updatedAt, cursor.updatedAt),
@@ -349,7 +357,8 @@ export const videosRouter = createTRPCRouter({
           .where(userId ? eq(videoReactions.userId, userId) : sql`0`),
       );
 
-      const viewerSubscriptions = database.$with("subscriptions").as(
+      // CTE name must not collide with the `subscriptions` table.
+      const viewerSubscriptions = database.$with("viewer_subscriptions").as(
         database
           .select()
           .from(subscriptions)
@@ -357,7 +366,7 @@ export const videosRouter = createTRPCRouter({
       );
 
       const [existingVideo] = await database
-        .with(viewerReactions)
+        .with(viewerReactions, viewerSubscriptions)
         .select({
           ...getTableColumns(videos),
           user: {
@@ -386,7 +395,193 @@ export const videosRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
-      return existingVideo;
+      // Determine what the viewer is allowed to do.
+      const isOwner = userId === existingVideo.userId;
+      const isAdmin = ctx.session?.user?.role === "admin";
+      let viewerAccess: "owner" | "full" | "needsPassword" | "denied";
+      if (isOwner || isAdmin) viewerAccess = "owner";
+      else if (existingVideo.visibility === "private") viewerAccess = "denied";
+      else if (existingVideo.passwordHash) viewerAccess = "needsPassword";
+      else viewerAccess = "full";
+
+      // Never leak the password hash to the client.
+      return { ...existingVideo, passwordHash: null, viewerAccess };
+    }),
+
+  /** Verify a video password; on success returns the playable HLS URL. */
+  verifyPassword: baseProcedure
+    .input(z.object({ videoId: z.string().uuid(), password: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.session?.user?.id;
+
+      const [video] = await database
+        .select({
+          userId: videos.userId,
+          visibility: videos.visibility,
+          passwordHash: videos.passwordHash,
+          streamUid: videos.streamUid,
+        })
+        .from(videos)
+        .where(eq(videos.id, input.videoId));
+
+      if (!video) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const isOwner = userId === video.userId;
+      const isAdmin = ctx.session?.user?.role === "admin";
+      if (isOwner || isAdmin || !video.passwordHash) {
+        return { ok: true, hlsUrl: video.streamUid ? hlsUrl(video.streamUid) : null };
+      }
+
+      const valid = await verifyPassword(video.passwordHash, input.password);
+      if (!valid) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Incorrect password" });
+      }
+
+      return { ok: true, hlsUrl: video.streamUid ? hlsUrl(video.streamUid) : null };
+    }),
+
+  /** Update privacy & access settings (owner only). */
+  updatePrivacy: protectedProcedure
+    .input(
+      z.object({
+        videoId: z.string().uuid(),
+        isUnlisted: z.boolean().nullish(),
+        password: z.string().min(1).max(200).nullish(),
+        clearPassword: z.boolean().nullish(),
+        allowedDomains: z.array(z.string().min(1)).nullish(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+
+      const set: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.isUnlisted !== undefined) set.isUnlisted = input.isUnlisted;
+      if (input.password) set.passwordHash = await hashPassword(input.password);
+      if (input.clearPassword) set.passwordHash = null;
+      if (input.allowedDomains != null) {
+        set.allowedDomains = input.allowedDomains.length ? JSON.stringify(input.allowedDomains) : null;
+      }
+
+      const [updated] = await database
+        .update(videos)
+        .set(set)
+        .where(and(eq(videos.id, input.videoId), eq(videos.userId, userId)))
+        .returning();
+
+      if (!updated) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      return { ...updated, passwordHash: null };
+    }),
+
+  /** Start replacing a video's source (owner only). Keeps the same id/URL; records
+   *  the current asset as a version, then points the video at a fresh upload. */
+  replaceVideo: protectedProcedure
+    .input(z.object({ videoId: z.string().uuid(), note: z.string().max(200).nullish() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+
+      const [video] = await database
+        .select()
+        .from(videos)
+        .where(and(eq(videos.id, input.videoId), eq(videos.userId, userId)));
+
+      if (!video) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const upload = await stream.directUpload({ creator: userId });
+
+      const [countRow] = await database
+        .select({ n: sql<number>`count(*)` })
+        .from(videoVersions)
+        .where(eq(videoVersions.videoId, video.id));
+
+      await database.insert(videoVersions).values({
+        videoId: video.id,
+        version: (countRow?.n ?? 0) + 1,
+        streamUid: video.streamUid,
+        thumbnailUrl: video.thumbnailUrl,
+        thumbnailKey: video.thumbnailKey,
+        duration: video.duration,
+        note: input.note ?? "Replaced",
+      });
+
+      const [updated] = await database
+        .update(videos)
+        .set({ streamUid: upload.uid, streamStatus: "pendingupload", updatedAt: new Date() })
+        .where(eq(videos.id, video.id))
+        .returning();
+
+      return { video: { ...updated, passwordHash: null }, uploadURL: upload.uploadURL };
+    }),
+
+  /** Restore a previous version (owner only). */
+  restoreVersion: protectedProcedure
+    .input(z.object({ videoId: z.string().uuid(), versionId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+
+      const [video] = await database
+        .select()
+        .from(videos)
+        .where(and(eq(videos.id, input.videoId), eq(videos.userId, userId)));
+
+      if (!video) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const [version] = await database
+        .select()
+        .from(videoVersions)
+        .where(and(eq(videoVersions.id, input.versionId), eq(videoVersions.videoId, input.videoId)));
+
+      if (!version || !version.streamUid) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const [updated] = await database
+        .update(videos)
+        .set({
+          streamUid: version.streamUid,
+          thumbnailUrl: version.thumbnailUrl ?? video.thumbnailUrl,
+          thumbnailKey: version.thumbnailKey ?? video.thumbnailKey,
+          duration: version.duration || video.duration,
+          streamStatus: "processed",
+          updatedAt: new Date(),
+        })
+        .where(eq(videos.id, video.id))
+        .returning();
+
+      return { ...updated, passwordHash: null };
+    }),
+
+  /** List a video's version history (owner only). */
+  getVersions: protectedProcedure
+    .input(z.object({ videoId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+
+      const [video] = await database
+        .select({ userId: videos.userId })
+        .from(videos)
+        .where(eq(videos.id, input.videoId));
+
+      if (!video) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+      if (video.userId !== userId) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+
+      return database
+        .select()
+        .from(videoVersions)
+        .where(eq(videoVersions.videoId, input.videoId))
+        .orderBy(desc(videoVersions.version), desc(videoVersions.id));
     }),
 
   revalidate: protectedProcedure

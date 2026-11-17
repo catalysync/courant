@@ -2,8 +2,19 @@
 
 import { trpc } from "@/trpc/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2Icon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DownloadIcon, Loader2Icon } from "lucide-react";
 import Link from "next/link";
+import { Suspense, useState } from "react";
+import { ErrorBoundary } from "react-error-boundary";
 import {
   CartesianGrid,
   Line,
@@ -22,7 +33,13 @@ const fmtDuration = (seconds: number) => {
   return `${(seconds / 3600).toFixed(1)}h`;
 };
 
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const AUDIENCE_DAYS = 30;
+
 export const AnalyticsView = () => {
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+
   const overview = trpc.analytics.getOverview.useQuery();
   const topVideos = trpc.analytics.getTopVideos.useQuery();
   const viewsOverTime = trpc.analytics.getViewsOverTime.useQuery({ days: 30 });
@@ -43,6 +60,20 @@ export const AnalyticsView = () => {
     { label: "Subscribers", value: fmt(overview.data?.subscribers) },
     { label: "Videos", value: fmt(overview.data?.videos) },
   ];
+
+  const exportViewsCsv = () => {
+    const rows = viewsOverTime.data ?? [];
+    const csv = ["date,count", ...rows.map((r) => `${r.date},${r.count}`)].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `views-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -68,8 +99,17 @@ export const AnalyticsView = () => {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Views — last 30 days</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportViewsCsv}
+              disabled={!viewsOverTime.data?.length}
+            >
+              <DownloadIcon />
+              Export CSV
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -119,6 +159,146 @@ export const AnalyticsView = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Suspense fallback={<Skeleton className="h-10 w-full max-w-sm" />}>
+        <ErrorBoundary fallback={null}>
+          <VideoPicker value={selectedVideoId} onValueChange={setSelectedVideoId} />
+        </ErrorBoundary>
+      </Suspense>
+
+      {selectedVideoId && (
+        <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+          <ErrorBoundary fallback={<p>Error...</p>}>
+            <RetentionSection videoId={selectedVideoId} />
+          </ErrorBoundary>
+        </Suspense>
+      )}
+
+      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+        <ErrorBoundary fallback={<p>Error...</p>}>
+          <AudienceSection videoId={selectedVideoId} />
+        </ErrorBoundary>
+      </Suspense>
     </div>
+  );
+};
+
+const VideoPicker = ({
+  value,
+  onValueChange,
+}: {
+  value: string | null;
+  onValueChange: (id: string | null) => void;
+}) => {
+  const [data] = trpc.studio.getMany.useSuspenseQuery({ limit: 100 });
+  const videos = data.items;
+
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <span className="text-sm font-medium">Video</span>
+      <Select
+        value={value ?? "all"}
+        onValueChange={(v) => onValueChange(v === "all" ? null : v)}
+      >
+        <SelectTrigger className="w-full sm:w-80">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All videos</SelectItem>
+          {videos.map((video) => (
+            <SelectItem key={video.id} value={video.id}>
+              {video.title}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
+const RetentionSection = ({ videoId }: { videoId: string }) => {
+  const [points] = trpc.analytics.getRetention.useSuspenseQuery({ videoId });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Audience retention</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {points.map((point) => (
+          <div key={point.percent} className="flex items-center gap-3">
+            <span className="w-10 text-right text-xs text-muted-foreground tabular-nums">
+              {point.percent}%
+            </span>
+            <div className="relative h-5 flex-1 overflow-hidden rounded bg-muted">
+              <div
+                className="h-full rounded bg-primary"
+                style={{ width: `${point.retentionPct}%` }}
+              />
+            </div>
+            <span className="w-12 text-xs text-muted-foreground tabular-nums">
+              {point.retentionPct}%
+            </span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+};
+
+const AudienceSection = ({ videoId }: { videoId: string | null }) => {
+  const [geography] = trpc.analytics.getGeography.useSuspenseQuery({
+    videoId: videoId ?? undefined,
+    days: AUDIENCE_DAYS,
+  });
+  const [devices] = trpc.analytics.getDevices.useSuspenseQuery({
+    videoId: videoId ?? undefined,
+    days: AUDIENCE_DAYS,
+  });
+  const [referrers] = trpc.analytics.getReferrers.useSuspenseQuery({
+    videoId: videoId ?? undefined,
+    days: AUDIENCE_DAYS,
+  });
+
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <AudienceListCard
+        title="Geography"
+        items={geography.map((r) => ({ key: r.key.toUpperCase(), n: r.n }))}
+      />
+      <AudienceListCard
+        title="Devices"
+        items={devices.map((r) => ({ key: capitalize(r.key), n: r.n }))}
+      />
+      <AudienceListCard title="Referrers" items={referrers.map((r) => ({ key: r.key, n: r.n }))} />
+    </div>
+  );
+};
+
+const AudienceListCard = ({
+  title,
+  items,
+}: {
+  title: string;
+  items: { key: string; n: number }[];
+}) => {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No data yet.</p>
+        ) : (
+          items.map((item) => (
+            <div key={item.key} className="flex items-center justify-between">
+              <span className="text-sm truncate">{item.key}</span>
+              <span className="text-sm text-muted-foreground tabular-nums">{fmt(item.n)}</span>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
   );
 };

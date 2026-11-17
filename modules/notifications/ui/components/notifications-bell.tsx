@@ -19,7 +19,13 @@ const MESSAGES: Record<string, string> = {
   new_subscriber: "subscribed to you",
   new_comment: "commented on your video",
   comment_reply: "replied to your comment",
+  comment_reaction: "reacted to your comment",
+  video_reaction: "liked your video",
   new_video: "uploaded a new video",
+  tip_received: "sent you a tip",
+  team_invite: "invited you to a team",
+  mention: "mentioned you",
+  live_started: "is now live",
 };
 
 export const NotificationsBell = () => {

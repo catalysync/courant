@@ -9,7 +9,14 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Separator } from "@radix-ui/react-separator";
-import { LogOutIcon, VideoIcon, BarChart3Icon } from "lucide-react";
+import {
+  LogOutIcon,
+  VideoIcon,
+  BarChart3Icon,
+  CircleDollarSignIcon,
+  UsersIcon,
+  SettingsIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { StudioSidebarHeader } from "./studio-sidebar-header";
@@ -43,6 +50,42 @@ export const StudioSidebar = () => {
                 <Link prefetch href="/studio/analytics">
                   <BarChart3Icon className="size-5" />
                   <span className="text-sm">Analytics</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathName === "/studio/tips"}
+                tooltip="Tips"
+                asChild
+              >
+                <Link prefetch href="/studio/tips">
+                  <CircleDollarSignIcon className="size-5" />
+                  <span className="text-sm">Tips</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathName === "/studio/team"}
+                tooltip="Team"
+                asChild
+              >
+                <Link prefetch href="/studio/team">
+                  <UsersIcon className="size-5" />
+                  <span className="text-sm">Team</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathName === "/studio/settings"}
+                tooltip="Settings"
+                asChild
+              >
+                <Link prefetch href="/studio/settings">
+                  <SettingsIcon className="size-5" />
+                  <span className="text-sm">Settings</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

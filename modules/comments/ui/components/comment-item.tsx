@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
+  Clock3Icon,
   MessageSquareIcon,
   MoreVerticalIcon,
   ThumbsDownIcon,
@@ -17,6 +18,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { trpc } from "@/trpc/client";
+import { formatTime, requestSeek } from "@/lib/playback-time";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import {
@@ -40,6 +42,10 @@ export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) 
   const router = useRouter();
   const { data: session } = useSession();
   const userId = session?.user?.id;
+  const commentTime =
+    typeof comment.timestampSec === "number" && comment.timestampSec >= 0
+      ? comment.timestampSec
+      : null;
 
   const [isReplyOpen, setIsReplyOpen] = useState(false);
   const [isRepliesOpen, setIsRepliesOpen] = useState(false);
@@ -103,6 +109,16 @@ export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) 
             </div>
           </Link>
           <p className="text-sm">{comment.value}</p>
+          {commentTime !== null && (
+            <button
+              type="button"
+              onClick={() => requestSeek(commentTime)}
+              className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium hover:bg-blue-200"
+            >
+              <Clock3Icon className="size-3" />
+              {formatTime(commentTime)}
+            </button>
+          )}
           <div className="flex items-center gap-2 mt-1">
             <div className="flex items-center">
               <Button

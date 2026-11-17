@@ -14,6 +14,12 @@ import { playlistsRouter } from "@/modules/playlists/server/procedures";
 import { adminRouter } from "@/modules/admin/server/procedures";
 import { analyticsRouter } from "@/modules/analytics/server/procedures";
 import { notificationsRouter } from "@/modules/notifications/server/procedures";
+import { tipsRouter } from "@/modules/tips/server/procedures";
+import { teamsRouter } from "@/modules/teams/server/procedures";
+import { aiRouter } from "@/modules/ai/server/procedures";
+import { liveRouter } from "@/modules/live/server/procedures";
+import { paymentsRouter } from "@/modules/payments/server/procedures";
+import { playerRouter } from "@/modules/player/server/procedures";
 
 export const appRouter = createTRPCRouter({
   users: usersRouter,
@@ -31,6 +37,12 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   analytics: analyticsRouter,
   notifications: notificationsRouter,
+  tips: tipsRouter,
+  teams: teamsRouter,
+  ai: aiRouter,
+  live: liveRouter,
+  payments: paymentsRouter,
+  player: playerRouter,
 });
 // export type definition of API
 export type AppRouter = typeof appRouter;

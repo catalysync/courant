@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import { UploadIcon, CheckCircle2Icon, AlertCircleIcon, Loader2Icon } from "lucide-react";
-import * as tus from "tus-js-client";
 import { useCallback, useRef, useState } from "react";
 
 interface StudioUploaderProps {
@@ -23,29 +22,36 @@ export const StudioUploader = ({ endpoint, onSuccess }: StudioUploaderProps) => 
   const [dragging, setDragging] = useState(false);
 
   const startUpload = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!endpoint) return;
       setState("uploading");
       setProgress(0);
 
-      const upload = new tus.Upload(file, {
-        endpoint,
-        retryDelays: [0, 1000, 3000, 5000],
-        chunkSize: 5 * 1024 * 1024,
-        metadata: { filename: file.name, filetype: file.type },
-        onProgress: (bytesUploaded, bytesTotal) => {
-          const pct = bytesTotal ? Math.floor((bytesUploaded / bytesTotal) * 100) : 0;
-          setProgress(pct);
-        },
-        onSuccess: () => {
-          setState("done");
-          onSuccess();
-        },
-        onError: () => {
-          setState("error");
-        },
-      });
-      upload.start();
+      // tus-js-client is only needed for the upload flow; dynamic import keeps
+      // it out of the initial bundle and code-splits onto the studio page.
+      try {
+        const tus = await import("tus-js-client");
+        const upload = new tus.Upload(file, {
+          endpoint,
+          retryDelays: [0, 1000, 3000, 5000],
+          chunkSize: 5 * 1024 * 1024,
+          metadata: { filename: file.name, filetype: file.type },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const pct = bytesTotal ? Math.floor((bytesUploaded / bytesTotal) * 100) : 0;
+            setProgress(pct);
+          },
+          onSuccess: () => {
+            setState("done");
+            onSuccess();
+          },
+          onError: () => {
+            setState("error");
+          },
+        });
+        upload.start();
+      } catch {
+        setState("error");
+      }
     },
     [endpoint, onSuccess],
   );
@@ -54,12 +60,12 @@ export const StudioUploader = ({ endpoint, onSuccess }: StudioUploaderProps) => 
     e.preventDefault();
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) startUpload(file);
+    if (file) void startUpload(file);
   };
 
   const onSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) startUpload(file);
+    if (file) void startUpload(file);
   };
 
   if (state === "done") {

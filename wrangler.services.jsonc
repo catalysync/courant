@@ -1,0 +1,26 @@
+{
+  "name": "courant-services",
+  "main": "services/worker.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [{ "name": "WATCH_ROOM", "class_name": "WatchRoom" }]
+  },
+  "exports": {
+    "WatchRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "courant-prod",
+      "database_id": "7409f7a2-e0c5-4828-af35-b6f7961db37a"
+    }
+  ],
+  "ai": { "binding": "AI" },
+  "queues": {
+    "consumers": [{ "queue": "courant-jobs" }]
+  }
+}

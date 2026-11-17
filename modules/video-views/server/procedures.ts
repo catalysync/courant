@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { videoViews, videoWatchEvents } from "@/database/schema";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
+import { getRequestMeta } from "@/lib/request-meta";
 
 export const videoViewsRouter = createTRPCRouter({
   create: protectedProcedure
@@ -45,6 +46,8 @@ export const videoViewsRouter = createTRPCRouter({
       const { id: userId } = ctx.user;
       const { videoId, watchSeconds, totalSeconds } = input;
 
+      const meta = await getRequestMeta();
+
       const [event] = await database
         .insert(videoWatchEvents)
         .values({
@@ -52,6 +55,9 @@ export const videoViewsRouter = createTRPCRouter({
           videoId,
           watchSeconds: Math.round(watchSeconds),
           totalSeconds: Math.round(totalSeconds),
+          country: meta.country,
+          device: meta.device,
+          referrer: meta.referrer,
         })
         .returning();
 

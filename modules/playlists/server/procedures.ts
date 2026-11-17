@@ -74,7 +74,9 @@ export const playlistsRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
-      const videosFromPlaylist = database.$with("playlist_videos").as(
+      // CTE name must not collide with the `playlist_videos` table (SQLite
+      // "circular reference").
+      const videosFromPlaylist = database.$with("videos_from_playlist").as(
         database
           .select({ videoId: playlistVideos.videoId })
           .from(playlistVideos)

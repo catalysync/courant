@@ -4,6 +4,7 @@ import {
   index,
   integer,
   primaryKey,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -174,12 +175,28 @@ export const videos = sqliteTable("videos", {
   visibility: text("visibility", { enum: videoVisibility })
     .notNull()
     .default("private"),
+  // ---- Privacy & access control (Phase 1) ----
+  // isUnlisted + visibility together yield three effective states:
+  //   public + !unlisted -> in feeds, anyone can watch
+  //   public + unlisted  -> NOT in feeds, anyone with the link can watch
+  //   private            -> creator only (or password / domain-restricted)
+  isUnlisted: integer("is_unlisted", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  // If set, viewers must present this password (PBKDF2 hash) to watch / embed.
+  passwordHash: text("password_hash"),
+  // JSON array of hostnames allowed to embed / view (null = no restriction).
+  allowedDomains: text("allowed_domains"),
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   categoryId: text("category_id").references(() => categories.id, {
     onDelete: "set null",
   }),
+  // ---- Monetization (Phase 2) ----
+  monetizationType: text("monetization_type").notNull().default("free"),
+  priceCents: integer("price_cents").notNull().default(0),
+  allowEmbed: integer("allow_embed", { mode: "boolean" }).notNull().default(true),
   createdAt: ts("created_at"),
   updatedAt: ts("updated_at"),
 });
@@ -241,6 +258,8 @@ export const comments = sqliteTable(
       .notNull()
       .references(() => videos.id, { onDelete: "cascade" }),
     value: text("value").notNull(),
+    // Frame-accurate review comment: seconds into the video (null = plain comment).
+    timestampSec: real("timestamp_sec"),
     createdAt: ts("created_at"),
     updatedAt: ts("updated_at"),
   },
@@ -306,6 +325,10 @@ export const notificationType = [
   "comment_reply",
   "comment_reaction",
   "video_reaction",
+  "tip_received",
+  "team_invite",
+  "mention",
+  "live_started",
 ] as const;
 
 export const notifications = sqliteTable(
@@ -316,7 +339,8 @@ export const notifications = sqliteTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     actorId: text("actor_id").references(() => user.id, { onDelete: "cascade" }),
-    type: text("type", { enum: notificationType }).notNull(),
+    // Plain text (no CHECK) so we can add notification types without recreating the table.
+    type: text("type").notNull(),
     videoId: text("video_id").references(() => videos.id, { onDelete: "cascade" }),
     commentId: text("comment_id").references(() => comments.id, { onDelete: "cascade" }),
     readAt: integer("read_at", { mode: "timestamp_ms" }),
@@ -341,7 +365,324 @@ export const videoWatchEvents = sqliteTable(
       .references(() => videos.id, { onDelete: "cascade" }),
     watchSeconds: integer("watch_seconds").notNull(),
     totalSeconds: integer("total_seconds").notNull(),
+    // ---- Deep analytics (Phase 2) ----
+    country: text("country"),
+    device: text("device"),
+    referrer: text("referrer"),
     createdAt: ts("created_at"),
   },
   (t) => [index("watch_events_video_idx").on(t.videoId), index("watch_events_user_idx").on(t.userId)],
 );
+
+// ---- creator review workflow (Phase 1) -------------------------------------
+// Video replacement keeps the same video id / URL; each replacement adds a
+// version row pointing at a new Stream asset. `videos.streamUid` is the active one.
+
+export const videoVersions = sqliteTable(
+  "video_versions",
+  {
+    id: uuidPk(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    version: integer("version").notNull().default(1),
+    streamUid: text("stream_uid"),
+    streamUploadId: text("stream_upload_id"),
+    thumbnailUrl: text("thumbnail_url"),
+    thumbnailKey: text("thumbnail_key"),
+    duration: integer("duration").default(0).notNull(),
+    note: text("note"),
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+  (t) => [index("video_versions_video_idx").on(t.videoId)],
+);
+
+export const videoVersionSelectSchema = createSelectSchema(videoVersions);
+export const videoVersionInsertSchema = createInsertSchema(videoVersions);
+
+// ---- creator commerce (Phase 1, no ads) ------------------------------------
+// Tip ledger. Amounts are integer cents.
+
+export const tips = sqliteTable(
+  "tips",
+  {
+    id: uuidPk(),
+    fromUserId: text("from_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    toUserId: text("to_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    videoId: text("video_id").references(() => videos.id, { onDelete: "set null" }),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull().default("usd"),
+    note: text("note"),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("tips_to_user_idx").on(t.toUserId), index("tips_from_user_idx").on(t.fromUserId)],
+);
+
+export const tipSelectSchema = createSelectSchema(tips);
+export const tipInsertSchema = createInsertSchema(tips);
+
+// Running-balance ledger for creator payouts.
+
+export const ledgerType = ["tip_received", "payout", "adjustment"] as const;
+
+export const ledger = sqliteTable(
+  "ledger",
+  {
+    id: uuidPk(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    type: text("type", { enum: ledgerType }).notNull(),
+    amountCents: integer("amount_cents").notNull(), // signed delta
+    balanceCents: integer("balance_cents").notNull(), // running balance after entry
+    refType: text("ref_type"), // e.g. "tip"
+    refId: text("ref_id"),
+    note: text("note"),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("ledger_user_idx").on(t.userId), index("ledger_created_idx").on(t.createdAt)],
+);
+
+export const ledgerSelectSchema = createSelectSchema(ledger);
+
+// Workspaces / teams with roles.
+
+export const teamRole = ["owner", "admin", "editor", "viewer"] as const;
+
+export const teams = sqliteTable(
+  "teams",
+  {
+    id: uuidPk(),
+    name: text("name").notNull(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+);
+
+export const teamSelectSchema = createSelectSchema(teams);
+export const teamInsertSchema = createInsertSchema(teams);
+export const teamUpdateSchema = createUpdateSchema(teams);
+
+export const teamMembers = sqliteTable(
+  "team_members",
+  {
+    id: uuidPk(),
+    teamId: text("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role", { enum: teamRole }).notNull().default("editor"),
+    createdAt: ts("created_at"),
+  },
+  (t) => [
+    index("team_members_team_idx").on(t.teamId),
+    index("team_members_user_idx").on(t.userId),
+    uniqueIndex("team_members_unique").on(t.teamId, t.userId),
+  ],
+);
+
+export const teamMemberSelectSchema = createSelectSchema(teamMembers);
+export const teamMemberInsertSchema = createInsertSchema(teamMembers);
+
+// ---- Phase 2: AI suite (chapters, transcripts, embeddings) -----------------
+
+export const chapters = sqliteTable(
+  "chapters",
+  {
+    id: uuidPk(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    startSec: real("start_sec").notNull(),
+    endSec: real("end_sec"),
+    order: integer("order").notNull().default(0),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("chapters_video_idx").on(t.videoId)],
+);
+
+export const chapterSelectSchema = createSelectSchema(chapters);
+export const chapterInsertSchema = createInsertSchema(chapters);
+
+export const transcripts = sqliteTable(
+  "transcripts",
+  {
+    id: uuidPk(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    language: text("language").notNull().default("en"),
+    status: text("status").notNull().default("draft"), // draft | generated
+    source: text("source").notNull().default("manual"), // manual | stream | ai
+    text: text("text"),
+    // JSON array of { start, end, text } segments for the timed transcript.
+    segments: text("segments"),
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+  (t) => [
+    index("transcripts_video_idx").on(t.videoId),
+    uniqueIndex("transcripts_video_lang_idx").on(t.videoId, t.language),
+  ],
+);
+
+export const transcriptSelectSchema = createSelectSchema(transcripts);
+export const transcriptInsertSchema = createInsertSchema(transcripts);
+
+// Per-video text embedding (JSON number[]) for semantic search. One row per
+// video (title + description), refreshed after updates.
+export const videoEmbeddings = sqliteTable(
+  "video_embeddings",
+  {
+    videoId: text("video_id")
+      .primaryKey()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    embedding: text("embedding").notNull(), // JSON number[]
+    model: text("model").notNull(),
+    updatedAt: ts("updated_at"),
+  },
+);
+
+// ---- Phase 2: live streaming ----------------------------------------------
+
+export const liveStatus = ["ready", "streaming", "ended"] as const;
+
+export const liveStreams = sqliteTable(
+  "live_streams",
+  {
+    id: uuidPk(),
+    creatorId: text("creator_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    videoId: text("video_id").references(() => videos.id, { onDelete: "set null" }),
+    streamInputId: text("stream_input_id").notNull().unique(),
+    rtmpUrl: text("rtmp_url"),
+    streamKey: text("stream_key"),
+    playbackUrl: text("playback_url"),
+    title: text("title"),
+    status: text("status").notNull().default("ready"),
+    startedAt: integer("started_at", { mode: "timestamp_ms" }),
+    endedAt: integer("ended_at", { mode: "timestamp_ms" }),
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+  (t) => [index("live_streams_creator_idx").on(t.creatorId)],
+);
+
+export const liveStreamSelectSchema = createSelectSchema(liveStreams);
+export const liveStreamInsertSchema = createInsertSchema(liveStreams);
+
+// ---- Phase 2: payments (rental / purchase / membership) -------------------
+
+export const monetizationType = ["free", "rental", "purchase", "membership"] as const;
+export const purchaseStatus = ["pending", "completed", "refunded", "expired"] as const;
+
+export const purchases = sqliteTable(
+  "purchases",
+  {
+    id: uuidPk(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // rental | purchase
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull().default("usd"),
+    provider: text("provider").notNull().default("stripe"),
+    providerSessionId: text("provider_session_id"),
+    status: text("status").notNull().default("pending"),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+  (t) => [index("purchases_user_video_idx").on(t.userId, t.videoId)],
+);
+
+export const purchaseSelectSchema = createSelectSchema(purchases);
+export const purchaseInsertSchema = createInsertSchema(purchases);
+
+export const memberships = sqliteTable(
+  "memberships",
+  {
+    id: uuidPk(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    creatorId: text("creator_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    tierName: text("tier_name").notNull().default("Supporter"),
+    priceCents: integer("price_cents").notNull(),
+    currency: text("currency").notNull().default("usd"),
+    provider: text("provider").notNull().default("stripe"),
+    providerCustomerId: text("provider_customer_id"),
+    status: text("status").notNull().default("active"),
+    currentPeriodEnd: integer("current_period_end", { mode: "timestamp_ms" }),
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+  (t) => [
+    index("memberships_user_idx").on(t.userId),
+    index("memberships_creator_idx").on(t.creatorId),
+    uniqueIndex("memberships_user_creator_idx").on(t.userId, t.creatorId),
+  ],
+);
+
+export const membershipSelectSchema = createSelectSchema(memberships);
+
+// ---- Phase 2: player customization ----------------------------------------
+
+export const playerSettings = sqliteTable(
+  "player_settings",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    primaryColor: text("primary_color").notNull().default("#3b82f6"),
+    watermarkText: text("watermark_text"),
+    showWatermark: integer("show_watermark", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    autoPlay: integer("auto_play", { mode: "boolean" }).notNull().default(false),
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+);
+
+export const playerSettingsSelectSchema = createSelectSchema(playerSettings);
+export const playerSettingsInsertSchema = createInsertSchema(playerSettings);
+export const playerSettingsUpdateSchema = createUpdateSchema(playerSettings);
+
+// Creator's membership (paid subscription) settings.
+export const creatorSettings = sqliteTable(
+  "creator_settings",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    membershipEnabled: integer("membership_enabled", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    membershipPriceCents: integer("membership_price_cents").notNull().default(500),
+    membershipTierName: text("membership_tier_name").notNull().default("Supporter"),
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+);
+
+export const creatorSettingsSelectSchema = createSelectSchema(creatorSettings);
+export const creatorSettingsInsertSchema = createInsertSchema(creatorSettings);
+export const creatorSettingsUpdateSchema = createUpdateSchema(creatorSettings);

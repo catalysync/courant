@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SubscriptionButton } from "@/modules/subscriptions/ui/components/subscription-button";
 import { UserInfo } from "@/modules/users/ui/components/user-info";
 import { useSubscription } from "@/modules/subscriptions/hooks/use-subscription";
+import { TipButton } from "@/modules/tips/ui/components/tip-button";
 
 interface VideoOwnerProps {
   user: VideoGetOneOutput["user"];
@@ -41,12 +42,15 @@ export const VideoOwner = ({ user, videoId }: VideoOwnerProps) => {
           </Link>
         </Button>
       ) : (
-        <SubscriptionButton
-          onClick={onClick}
-          disabled={isPending || !isLoaded}
-          isSubscribed={user.viewerSubscribed}
-          className="flex-none"
-        />
+        <div className="flex items-center gap-2">
+          {userId && <TipButton toUserId={user.id} videoId={videoId} />}
+          <SubscriptionButton
+            onClick={onClick}
+            disabled={isPending || !isLoaded}
+            isSubscribed={user.viewerSubscribed}
+            className="flex-none"
+          />
+        </div>
       )}
     </div>
   );

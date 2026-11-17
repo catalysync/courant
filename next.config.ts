@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "courant.nagara.cloud",
+      },
+      {
+        protocol: "https",
+        hostname: "courant.protheolabs-ai-router.workers.dev",
+      },
+      {
+        protocol: "https",
+        hostname: "*.r2.cloudflarestorage.com",
+      },
+      {
+        protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
       {

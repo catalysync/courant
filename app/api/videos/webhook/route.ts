@@ -2,6 +2,7 @@ import { database } from "@/database";
 import { videos } from "@/database/schema";
 import { verifyStreamWebhook, previewUrl, thumbnailUrl } from "@/lib/stream";
 import { eq } from "drizzle-orm";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 const STREAM_WEBHOOK_SECRET = process.env.STREAM_WEBHOOK_SECRET;
 
@@ -36,7 +37,7 @@ export const POST = async (req: Request) => {
 
   switch (status?.state) {
     case "ready": {
-      await database
+      const [updated] = await database
         .update(videos)
         .set({
           streamStatus: "ready",
@@ -44,7 +45,18 @@ export const POST = async (req: Request) => {
           thumbnailUrl: thumbnailUrl(uid),
           previewUrl: previewUrl(uid),
         })
-        .where(eq(videos.streamUid, uid));
+        .where(eq(videos.streamUid, uid))
+        .returning({ id: videos.id });
+
+      // Decouple async AI work from the webhook: enqueue metadata refinement.
+      if (updated?.id) {
+        try {
+          const { env } = getCloudflareContext();
+          await (env as any).JOBS?.send({ type: "refine_metadata", videoId: updated.id });
+        } catch (e) {
+          console.error("enqueue refine_metadata failed", e);
+        }
+      }
       break;
     }
     case "error": {
