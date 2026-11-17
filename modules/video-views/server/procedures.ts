@@ -2,7 +2,7 @@ import { database } from "@/database";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { videoViews, videoWatchEvents, videos } from "@/database/schema";
 import { z } from "zod";
-import { and, desc, eq, getTableColumns, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray, lt, sql } from "drizzle-orm";
 import { getRequestMeta } from "@/lib/request-meta";
 import { user } from "@/database/schema";
 
@@ -115,5 +115,60 @@ export const videoViewsRouter = createTRPCRouter({
         .slice(0, input.limit);
 
       return { items };
+    }),
+
+  /** The viewer's recently-watched videos, newest first (History page). */
+  getHistory: protectedProcedure
+    .input(
+      z.object({
+        cursor: z.object({ lastWatchedAt: z.number() }).nullish(),
+        limit: z.number().min(1).max(100),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const { cursor, limit } = input;
+
+      // One row per video: its latest watch event and the furthest position reached.
+      const viewerHistory = database.$with("viewer_history").as(
+        database
+          .select({
+            videoId: videoWatchEvents.videoId,
+            watchSeconds: sql<number>`MAX(${videoWatchEvents.watchSeconds})`,
+            lastWatchedAt: sql<number>`MAX(${videoWatchEvents.createdAt})`,
+          })
+          .from(videoWatchEvents)
+          .where(eq(videoWatchEvents.userId, ctx.user.id))
+          .groupBy(videoWatchEvents.videoId),
+      );
+
+      const rows = await database
+        .with(viewerHistory)
+        .select({
+          ...getTableColumns(videos),
+          user,
+          lastWatchedAt: viewerHistory.lastWatchedAt,
+        })
+        .from(videos)
+        .innerJoin(viewerHistory, eq(viewerHistory.videoId, videos.id))
+        .innerJoin(user, eq(videos.userId, user.id))
+        .where(
+          and(
+            eq(videos.visibility, "public"),
+            cursor
+              ? lt(viewerHistory.lastWatchedAt, cursor.lastWatchedAt)
+              : undefined,
+          ),
+        )
+        .orderBy(desc(viewerHistory.lastWatchedAt))
+        .limit(limit + 1);
+
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, -1) : rows;
+      const lastItem = items[items.length - 1];
+      const nextCursor = hasMore
+        ? { lastWatchedAt: lastItem.lastWatchedAt }
+        : null;
+
+      return { items, nextCursor };
     }),
 });

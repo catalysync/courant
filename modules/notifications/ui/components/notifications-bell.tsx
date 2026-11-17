@@ -72,14 +72,22 @@ export const NotificationsBell = () => {
       <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
         <div className="flex items-center justify-between px-2 py-1.5">
           <p className="text-sm font-semibold">Notifications</p>
-          {(unread.data ?? 0) > 0 && (
+          <div className="flex items-center gap-2">
             <button
-              className="text-xs text-teal-600 hover:underline"
-              onClick={() => markAll.mutate()}
+              className="text-xs text-primary hover:underline"
+              onClick={() => router.push("/notifications")}
             >
-              Mark all read
+              View all
             </button>
-          )}
+            {(unread.data ?? 0) > 0 && (
+              <button
+                className="text-xs text-primary hover:underline"
+                onClick={() => markAll.mutate()}
+              >
+                Mark all read
+              </button>
+            )}
+          </div>
         </div>
         {notifications.isLoading && (
           <div className="flex justify-center py-8">

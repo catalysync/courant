@@ -19,7 +19,7 @@ export default async function AdminLayout({
     <div className="min-h-screen bg-muted/20">
       <header className="sticky top-0 z-50 h-14 border-b bg-background flex items-center justify-between px-4 md:px-6">
         <Link href="/admin" className="flex items-center gap-2 font-semibold">
-          <ShieldCheckIcon className="size-5 text-teal-600" />
+          <ShieldCheckIcon className="size-5 text-teal-400" />
           Courant Admin
         </Link>
         <AdminNav />

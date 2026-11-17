@@ -14,6 +14,7 @@ import {
   VideoIcon,
   BarChart3Icon,
   CircleDollarSignIcon,
+  WalletIcon,
   UsersIcon,
   SettingsIcon,
   MonitorPlayIcon,
@@ -66,6 +67,18 @@ export const StudioSidebar = () => {
                 <Link prefetch href="/studio/tips">
                   <CircleDollarSignIcon className="size-5" />
                   <span className="text-sm">Tips</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathName === "/studio/payouts"}
+                tooltip="Payouts"
+                asChild
+              >
+                <Link prefetch href="/studio/payouts">
+                  <WalletIcon className="size-5" />
+                  <span className="text-sm">Payouts</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

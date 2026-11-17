@@ -226,10 +226,11 @@ export const commentsRouter = createTRPCRouter({
           })
           .nullish(),
         limit: z.number().min(1).max(100),
+        sort: z.enum(["newest", "top"]).default("newest"),
       }),
     )
     .query(async ({ input, ctx }) => {
-      const { parentId, videoId, cursor, limit } = input;
+      const { parentId, videoId, cursor, limit, sort } = input;
       const userId = ctx.session?.user?.id;
 
       const viewerReactions = database.$with("viewer_reactions").as(
@@ -252,6 +253,46 @@ export const commentsRouter = createTRPCRouter({
           .where(isNotNull(comments.parentId))
           .groupBy(comments.parentId),
       );
+
+      const likeCountExpr = database.$count(
+        commentReactions,
+        and(eq(commentReactions.type, "like"), eq(commentReactions.commentId, comments.id)),
+      );
+      const dislikeCountExpr = database.$count(
+        commentReactions,
+        and(
+          eq(commentReactions.type, "dislike"),
+          eq(commentReactions.commentId, comments.id),
+        ),
+      );
+
+      // "Top" sort: return the most-liked comments (no infinite cursor).
+      if (sort === "top") {
+        const top = await database
+          .with(viewerReactions, replies)
+          .select({
+            ...getTableColumns(comments),
+            user,
+            viewerReaction: viewerReactions.type,
+            replyCount: replies.count,
+            likeCount: likeCountExpr,
+            dislikeCount: dislikeCountExpr,
+          })
+          .from(comments)
+          .where(
+            and(
+              eq(comments.videoId, videoId),
+              parentId ? eq(comments.parentId, parentId) : isNull(comments.parentId),
+            ),
+          )
+          .innerJoin(user, eq(comments.userId, user.id))
+          .leftJoin(viewerReactions, eq(comments.id, viewerReactions.commentId))
+          .leftJoin(replies, eq(comments.id, replies.parentId))
+          .orderBy(desc(likeCountExpr), desc(comments.createdAt), desc(comments.id))
+          .limit(limit);
+
+        return { items: top, nextCursor: null, totalCount: top.length };
+      }
 
       const [totalData, data] = await Promise.all([
         database

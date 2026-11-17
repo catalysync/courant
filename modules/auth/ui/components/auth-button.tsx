@@ -27,7 +27,7 @@ export const AuthButton = () => {
     return (
       <Button
         variant="outline"
-        className="px-4 py-2 text-sm text-teal-600 hover:text-teal-500 border-teal-500/20 rounded-full shadow-none"
+        className="px-4 py-2 text-sm text-teal-400 hover:text-teal-500 border-teal-500/20 rounded-full shadow-none"
         onClick={() => router.push("/sign-in")}
       >
         <UserCircleIcon />

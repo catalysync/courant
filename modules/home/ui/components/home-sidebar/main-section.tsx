@@ -8,7 +8,13 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useSession } from "@/lib/auth-client";
-import { FlameIcon, HomeIcon, NewspaperIcon, PlaySquareIcon } from "lucide-react";
+import {
+  FlameIcon,
+  HistoryIcon,
+  HomeIcon,
+  NewspaperIcon,
+  PlaySquareIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -34,6 +40,12 @@ const items = [
     title: "The Buzz",
     url: "/feed/trending",
     icon: FlameIcon,
+  },
+  {
+    title: "History",
+    url: "/feed/history",
+    icon: HistoryIcon,
+    auth: true,
   },
 ];
 
