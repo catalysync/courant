@@ -176,7 +176,7 @@ export const WatchParty = ({ videoId, isOwner, duration }: WatchPartyProps) => {
                 >
                   {m.name}
                   {m.isHost && (
-                    <span className="rounded-full bg-amber-500/20 text-amber-600 px-1.5 text-[10px] font-medium">
+                    <span className="rounded-full bg-amber-500/20 text-amber-400 px-1.5 text-[10px] font-medium">
                       host
                     </span>
                   )}

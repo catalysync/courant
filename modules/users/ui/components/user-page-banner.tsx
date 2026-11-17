@@ -30,7 +30,7 @@ export const UserPageBanner = ({ user }: UserPageBannerProps) => {
           "w-full max-h-[200px] h-[15vh] md:h-[25vh] bg-gradient-to-r",
           "from-gray-100 to-gray-200",
           "rounded-xl",
-          user.bannerUrl ? "bg-cover bg-center" : "bg-gray-100",
+          user.bannerUrl ? "bg-cover bg-center" : "bg-muted",
         )}
         style={{
           backgroundImage: user.bannerUrl ? `url(${user.bannerUrl})` : undefined,

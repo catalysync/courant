@@ -60,6 +60,23 @@ export const LineChart = ({
     "Z",
   ].join(" ");
 
+  // Subtle horizontal grid lines (4 divisions).
+  const gridLines = [0, 1, 2, 3, 4].map((i) => {
+    const y = padding + (i * (height - padding * 2)) / 4;
+    return (
+      <line
+        key={i}
+        x1={padding}
+        x2={width - padding}
+        y1={y}
+        y2={y}
+        stroke="hsl(var(--border))"
+        strokeWidth={1}
+        vectorEffect="non-scaling-stroke"
+      />
+    );
+  });
+
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -68,6 +85,7 @@ export const LineChart = ({
       role="img"
       aria-hidden="true"
     >
+      {gridLines}
       {area && (
         <path d={areaPath} fill="hsl(var(--primary) / 0.12)" stroke="none" />
       )}
