@@ -10,6 +10,7 @@ const links = [
   { title: "Dashboard", url: "/admin" },
   { title: "Users", url: "/admin/users" },
   { title: "Videos", url: "/admin/videos" },
+  { title: "Reports", url: "/admin/reports" },
 ];
 
 export const AdminNav = () => {

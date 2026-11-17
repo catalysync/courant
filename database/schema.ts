@@ -949,3 +949,27 @@ export const channelBranding = sqliteTable(
 export const channelBrandingSelectSchema = createSelectSchema(channelBranding);
 export const channelBrandingInsertSchema = createInsertSchema(channelBranding);
 export const channelBrandingUpdateSchema = createUpdateSchema(channelBranding);
+
+// ---- Phase 3.5: trust & safety ----
+
+export const reportStatus = ["open", "resolved", "dismissed"] as const;
+
+export const reports = sqliteTable(
+  "reports",
+  {
+    id: uuidPk(),
+    reporterId: text("reporter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    targetUserId: text("target_user_id").references(() => user.id, { onDelete: "cascade" }),
+    videoId: text("video_id").references(() => videos.id, { onDelete: "cascade" }),
+    commentId: text("comment_id").references(() => comments.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("open"),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("reports_status_idx").on(t.status)],
+);
+
+export const reportSelectSchema = createSelectSchema(reports);
+export const reportInsertSchema = createInsertSchema(reports);

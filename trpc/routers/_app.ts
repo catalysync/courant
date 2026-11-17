@@ -28,6 +28,7 @@ import { collabRouter } from "@/modules/collab/server/procedures";
 import { growthRouter } from "@/modules/growth/server/procedures";
 import { webinarsRouter } from "@/modules/webinars/server/procedures";
 import { brandingRouter } from "@/modules/branding/server/procedures";
+import { reportsRouter } from "@/modules/reports/server/procedures";
 
 export const appRouter = createTRPCRouter({
   users: usersRouter,
@@ -59,6 +60,7 @@ export const appRouter = createTRPCRouter({
   growth: growthRouter,
   webinars: webinarsRouter,
   branding: brandingRouter,
+  reports: reportsRouter,
 });
 // export type definition of API
 export type AppRouter = typeof appRouter;

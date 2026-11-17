@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { APP_URL } from "@/lib/constants";
 import { useState } from "react";
 import { PlaylistAddModal } from "@/modules/playlists/ui/components/playlist-add-modal";
+import { ReportButton } from "@/modules/reports/ui/components/report-button";
 
 interface VideoMenuProps {
   videoId: string;
@@ -55,6 +56,7 @@ export const VideoMenu = ({ videoId, variant = "ghost", onRemove }: VideoMenuPro
             <ListPlusIcon className="mr-2 size-4" />
             Add to playlist
           </DropdownMenuItem>
+          <ReportButton videoId={videoId} />
           {onRemove && (
             <DropdownMenuItem onClick={onRemove}>
               <Trash2Icon className="mr-2 size-4" />
