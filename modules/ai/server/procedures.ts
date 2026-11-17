@@ -113,12 +113,12 @@ export const aiRouter = createTRPCRouter({
   // ---- transcript ----
 
   getTranscript: baseProcedure
-    .input(z.object({ videoId: z.string().uuid() }))
+    .input(z.object({ videoId: z.string().uuid(), language: z.string().min(2).max(10).default("en") }))
     .query(async ({ input }) => {
       const [t] = await database
         .select()
         .from(transcripts)
-        .where(and(eq(transcripts.videoId, input.videoId), eq(transcripts.language, "en")));
+        .where(and(eq(transcripts.videoId, input.videoId), eq(transcripts.language, input.language)));
       return t ?? null;
     }),
 
@@ -208,7 +208,7 @@ export const aiRouter = createTRPCRouter({
           .select({ ...getTableColumns(videos), user })
           .from(videos)
           .innerJoin(user, eq(videos.userId, user.id))
-          .where(and(eq(videos.visibility, "public"), inArray(videos.id, ids)));
+          .where(and(eq(videos.visibility, "public"), eq(videos.isUnlisted, false), inArray(videos.id, ids)));
 
         const byId = new Map(vids.map((v) => [v.id, v]));
         const ordered = scored

@@ -54,16 +54,15 @@ export const playlistsRouter = createTRPCRouter({
 
       return deletedPlaylist;
     }),
-  getOne: protectedProcedure
+  getOne: baseProcedure
     .input(z.object({ id: z.string().uuid() }))
-    .query(async ({ input, ctx }) => {
+    .query(async ({ input }) => {
       const { id } = input;
-      const { id: userId } = ctx.user;
 
       const [existingPlaylist] = await database
         .select()
         .from(playlists)
-        .where(and(eq(playlists.id, id), eq(playlists.userId, userId)));
+        .where(eq(playlists.id, id));
 
       if (!existingPlaylist) {
         throw new TRPCError({ code: "NOT_FOUND" });
@@ -71,7 +70,7 @@ export const playlistsRouter = createTRPCRouter({
 
       return existingPlaylist;
     }),
-  getVideos: protectedProcedure
+  getVideos: baseProcedure
     .input(
       z.object({
         playlistId: z.string().uuid(),
@@ -84,18 +83,8 @@ export const playlistsRouter = createTRPCRouter({
         limit: z.number().min(1).max(100),
       }),
     )
-    .query(async ({ input, ctx }) => {
-      const { id: userId } = ctx.user;
+    .query(async ({ input }) => {
       const { cursor, limit, playlistId } = input;
-
-      const [existingPlaylist] = await database
-        .select()
-        .from(playlists)
-        .where(and(eq(playlists.id, playlistId), eq(playlists.userId, userId)));
-
-      if (!existingPlaylist) {
-        throw new TRPCError({ code: "NOT_FOUND" });
-      }
 
       // CTE name must not collide with the `playlist_videos` table (SQLite
       // "circular reference").
@@ -127,6 +116,7 @@ export const playlistsRouter = createTRPCRouter({
         .where(
           and(
             eq(videos.visibility, "public"),
+            eq(videos.isUnlisted, false),
             cursor
               ? or(
                   lt(videos.updatedAt, cursor.updatedAt),

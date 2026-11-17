@@ -114,13 +114,13 @@ export const CommentForm = ({
                   {formatTime(getPlaybackTime())}
                 </Button>
               ) : (
-                <span className="flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium">
+                <span className="flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
                   <Clock3Icon className="size-3" />
                   {formatTime(timestampSec)}
                   <button
                     type="button"
                     onClick={() => setTimestampSec(null)}
-                    className="ml-0.5 hover:text-blue-900"
+                    className="ml-0.5 hover:text-primary/70"
                   >
                     <XIcon className="size-3" />
                   </button>

@@ -113,7 +113,7 @@ export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) 
             <button
               type="button"
               onClick={() => requestSeek(commentTime)}
-              className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium hover:bg-blue-200"
+              className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium hover:bg-primary/20"
             >
               <Clock3Icon className="size-3" />
               {formatTime(commentTime)}
@@ -128,7 +128,7 @@ export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) 
                 className="size-8"
                 onClick={() => like.mutate({ commentId: comment.id })}
               >
-                <ThumbsUpIcon className={cn(comment.viewerReaction === "like" && "fill-black")} />
+                <ThumbsUpIcon className={cn(comment.viewerReaction === "like" && "fill-primary")} />
               </Button>
               <span className="text-xs text-muted-foreground">{comment.likeCount}</span>
               <Button
@@ -139,7 +139,7 @@ export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) 
                 onClick={() => dislike.mutate({ commentId: comment.id })}
               >
                 <ThumbsDownIcon
-                  className={cn(comment.viewerReaction === "dislike" && "fill-black")}
+                  className={cn(comment.viewerReaction === "dislike" && "fill-primary")}
                 />
               </Button>
               <span className="text-xs text-muted-foreground">{comment.dislikeCount}</span>

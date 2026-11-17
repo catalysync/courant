@@ -13,6 +13,7 @@ import { useSession } from "@/lib/auth-client";
 import { VideoTopRow } from "../components/video-top-row";
 import { VideoPlayer } from "../components/video-player";
 import { WatchParty } from "../components/watch-party";
+import { ErrorState } from "@/components/error-state";
 import { LeadGate } from "../components/lead-gate";
 
 interface VideoSectionProps {
@@ -22,7 +23,7 @@ interface VideoSectionProps {
 export const VideoSection = ({ videoId }: VideoSectionProps) => {
   return (
     <Suspense fallback={<VideoSkeleton />}>
-      <ErrorBoundary fallback={<p>Error...</p>}>
+      <ErrorBoundary fallback={<ErrorState />}>
         <VideoSectionSuspense videoId={videoId} />
       </ErrorBoundary>
     </Suspense>

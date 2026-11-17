@@ -15,15 +15,7 @@ import { DownloadIcon, Loader2Icon } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { LineChart } from "../components/line-chart";
 
 const fmt = (n: number | undefined) => (n ?? 0).toLocaleString("en");
 
@@ -112,21 +104,7 @@ export const AnalyticsView = () => {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={viewsOverTime.data ?? []} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(v: string) => v.slice(5)}
-                  />
-                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="count" stroke="#14b8a6" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            <ViewsOverTimeChart data={viewsOverTime.data ?? []} />
           </CardContent>
         </Card>
 
@@ -224,23 +202,19 @@ const RetentionSection = ({ videoId }: { videoId: string }) => {
       <CardHeader>
         <CardTitle>Audience retention</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {points.map((point) => (
-          <div key={point.percent} className="flex items-center gap-3">
-            <span className="w-10 text-right text-xs text-muted-foreground tabular-nums">
-              {point.percent}%
-            </span>
-            <div className="relative h-5 flex-1 overflow-hidden rounded bg-muted">
-              <div
-                className="h-full rounded bg-primary"
-                style={{ width: `${point.retentionPct}%` }}
-              />
-            </div>
-            <span className="w-12 text-xs text-muted-foreground tabular-nums">
-              {point.retentionPct}%
-            </span>
-          </div>
-        ))}
+      <CardContent>
+        <div className="h-64">
+          <LineChart
+            data={points.map((p) => ({ x: p.percent, y: p.retentionPct }))}
+            baseline={0}
+            top={100}
+            className="h-full w-full"
+          />
+        </div>
+        <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
+          <span>0%</span>
+          <span>100%</span>
+        </div>
       </CardContent>
     </Card>
   );

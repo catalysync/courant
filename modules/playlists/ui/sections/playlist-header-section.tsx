@@ -9,6 +9,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import { trpc } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSession } from "@/lib/auth-client";
 
 interface PlaylistHeaderSectionProps {
   playlistId: string;
@@ -35,6 +36,8 @@ export const PlaylistHeaderSectionSkeleton = () => {
 
 const PlaylistHeaderSectionSuspense = ({ playlistId }: PlaylistHeaderSectionProps) => {
   const [playlist] = trpc.playlists.getOne.useSuspenseQuery({ id: playlistId });
+  const { data: session } = useSession();
+  const isOwner = session?.user?.id === playlist.userId;
 
   const router = useRouter();
   const utils = trpc.useUtils();
@@ -55,15 +58,17 @@ const PlaylistHeaderSectionSuspense = ({ playlistId }: PlaylistHeaderSectionProp
         <h1 className="text-2xl font-bold">{playlist.name}</h1>
         <p className="text-xs text-muted-foreground">Videos from the playlist</p>
       </div>
-      <Button
-        variant="outline"
-        size="icon"
-        className="rounded-full"
-        onClick={() => remove.mutate({ id: playlistId })}
-        disabled={remove.isPending}
-      >
-        <Trash2Icon />
-      </Button>
+      {isOwner && (
+        <Button
+          variant="outline"
+          size="icon"
+          className="rounded-full"
+          onClick={() => remove.mutate({ id: playlistId })}
+          disabled={remove.isPending}
+        >
+          <Trash2Icon />
+        </Button>
+      )}
     </div>
   );
 };

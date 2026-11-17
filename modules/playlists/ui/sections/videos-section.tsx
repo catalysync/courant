@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { trpc } from "@/trpc/client";
 import { PAGE_DEFAULT_LIMIT } from "@/lib/constants";
 import { InfiniteScroll } from "@/components/infinite-scroll";
+import { useSession } from "@/lib/auth-client";
 
 import { VideoGridCard, VideoGridCardSkeleton } from "@/modules/videos/ui/components/video-grid-card";
 import { VideoRowCard, VideoRowCardSkeleton } from "@/modules/videos/ui/components/video-row-card";
@@ -47,6 +48,9 @@ const VideosSectionSuspense = ({ playlistId }: VideosSectionProps) => {
     { limit: PAGE_DEFAULT_LIMIT, playlistId },
     { getNextPageParam: (lastPage) => lastPage.nextCursor },
   );
+  const [playlist] = trpc.playlists.getOne.useSuspenseQuery({ id: playlistId });
+  const { data: session } = useSession();
+  const isOwner = session?.user?.id === playlist.userId;
 
   const utils = trpc.useUtils();
 
@@ -70,7 +74,7 @@ const VideosSectionSuspense = ({ playlistId }: VideosSectionProps) => {
           <VideoGridCard
             key={video.id}
             data={video}
-            onRemove={() => removeVideo.mutate({ playlistId, videoId: video.id })}
+            onRemove={isOwner ? () => removeVideo.mutate({ playlistId, videoId: video.id }) : undefined}
           />
         ))}
       </div>
@@ -80,7 +84,7 @@ const VideosSectionSuspense = ({ playlistId }: VideosSectionProps) => {
             key={video.id}
             data={video}
             size="compact"
-            onRemove={() => removeVideo.mutate({ playlistId, videoId: video.id })}
+            onRemove={isOwner ? () => removeVideo.mutate({ playlistId, videoId: video.id }) : undefined}
           />
         ))}
       </div>

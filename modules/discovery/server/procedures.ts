@@ -13,7 +13,7 @@ export const discoveryRouter = createTRPCRouter({
       .select({ ...getTableColumns(videos), user })
       .from(videos)
       .innerJoin(user, eq(videos.userId, user.id))
-      .where(and(eq(videos.visibility, "public"), eq(videos.isFeatured, true)))
+      .where(and(eq(videos.visibility, "public"), eq(videos.isUnlisted, false), eq(videos.isFeatured, true)))
       .orderBy(desc(videos.updatedAt))
       .limit(20);
   }),
