@@ -18,6 +18,8 @@ const Page = async ({ searchParams }: PageProps) => {
     categoryId,
     limit: PAGE_DEFAULT_LIMIT,
   });
+  void trpc.discovery.getFeatured.prefetch();
+  void trpc.videos.getManyTrending.prefetchInfinite({ limit: 8 });
 
   return (
     <HydrateClient>
