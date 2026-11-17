@@ -138,6 +138,13 @@ export const AuthForm = ({ mode }: AuthFormProps) => {
           </>
         )}
       </p>
+      {mode === "sign-in" && (
+        <p className="text-center text-sm">
+          <Link href="/forgot-password" className="text-muted-foreground hover:underline">
+            Forgot password?
+          </Link>
+        </p>
+      )}
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { ChannelPostsSection } from "@/modules/community/ui/sections/channel-posts-section";
 import { ChannelBrandingBanner } from "@/modules/branding/ui/components/channel-branding-banner";
+import { PublicPlaylistsSection } from "@/modules/playlists/ui/sections/public-playlists-section";
 
 import { UserSection } from "../sections/user-section";
 import { VideosSection } from "../sections/videos-section";
@@ -14,6 +15,7 @@ export const UserView = ({ userId }: UserViewProps) => {
       <ChannelBrandingBanner userId={userId} />
       <UserSection userId={userId} />
       <VideosSection userId={userId} />
+      <PublicPlaylistsSection userId={userId} />
       <section className="flex flex-col gap-y-4 max-w-3xl">
         <div>
           <h2 className="text-xl font-bold">Posts</h2>

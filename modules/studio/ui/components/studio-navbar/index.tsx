@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PlusIcon, RadioIcon } from "lucide-react";
 import { StudioUploadModal } from "../studio-sidebar/studio-upload-modal";
 import { LiveModal } from "../live-modal";
+import { ScreenRecorder } from "../screen-recorder";
 import { useState } from "react";
 
 export const StudioNavbar = () => {
@@ -28,6 +29,7 @@ export const StudioNavbar = () => {
         <div className="flex-1"></div>
 
         <div className="flex-shrink-0 items-center flex gap-4">
+          <ScreenRecorder />
           <Button variant="secondary" onClick={() => setLiveOpen(true)}>
             <RadioIcon />
             Go live

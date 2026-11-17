@@ -43,8 +43,35 @@ const Page = async ({ params }: PageProps) => {
     limit: PAGE_DEFAULT_LIMIT,
   });
 
+  let jsonLd: string | null = null;
+  try {
+    const caller = createCallerFactory(appRouter)(createTRPCContext);
+    const video = await caller.videos.getOne({ id: videoId });
+    if (video.visibility === "public" && !video.isUnlisted) {
+      jsonLd = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "VideoObject",
+        name: video.title,
+        description: video.description ?? undefined,
+        thumbnailUrl: video.thumbnailUrl ?? undefined,
+        uploadDate: video.createdAt.toISOString(),
+        duration: video.duration ? `PT${Math.round(video.duration)}S` : undefined,
+        embedUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/embed/${video.id}`,
+        contentUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/videos/${video.id}`,
+      });
+    }
+  } catch {
+    jsonLd = null;
+  }
+
   return (
     <HydrateClient>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLd }}
+        />
+      )}
       <VideoView videoId={videoId} />
     </HydrateClient>
   );

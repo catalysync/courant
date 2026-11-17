@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, getTableColumns, lt, or, sql } from "drizzle-orm";
 
-import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
+import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import {
   playlists,
   playlistVideos,
@@ -14,6 +14,29 @@ import {
 } from "@/database/schema";
 
 export const playlistsRouter = createTRPCRouter({
+  /** A user's public playlists (channel "showcase" collections). */
+  getPublic: baseProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ input }) => {
+      return database
+        .select({
+          ...getTableColumns(playlists),
+          videoCount: database.$count(playlistVideos, eq(playlists.id, playlistVideos.playlistId)),
+          thumbnailUrl: sql<string | null>`(
+            SELECT v.thumbnail_url
+            FROM ${playlistVideos} pv
+            JOIN ${videos} v ON v.id = pv.video_id
+            WHERE pv.playlist_id = ${playlists.id}
+            ORDER BY pv.updated_at DESC
+            LIMIT 1
+          )`,
+        })
+        .from(playlists)
+        .where(eq(playlists.userId, input.userId))
+        .orderBy(desc(playlists.updatedAt), desc(playlists.id))
+        .limit(50);
+    }),
+
   remove: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {

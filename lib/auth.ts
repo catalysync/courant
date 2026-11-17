@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getDatabase } from "@/database";
 import * as schema from "@/database/schema";
 import { turnstilePlugin } from "@/lib/turnstile-plugin";
+import { sendEmail } from "@/lib/email";
 
 /**
  * Better Auth (self-hosted) on D1. Replaces Clerk. There is no webhook-sync; users, sessions
@@ -112,9 +113,25 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
     minPasswordLength: 8,
+    sendResetPassword: async ({ user, url }) => {
+      await sendEmail(
+        user.email,
+        "Reset your Courant password",
+        `Reset your password: ${url}\n\nIf you didn't request this, ignore this email.`,
+      );
+    },
     password: {
       hash: hashPassword,
       verify: ({ hash, password }) => verifyPassword(hash, password),
+    },
+  },
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendEmail(
+        user.email,
+        "Verify your Courant email",
+        `Verify your email: ${url}`,
+      );
     },
   },
   socialProviders,
