@@ -16,6 +16,10 @@ import {
   CircleDollarSignIcon,
   UsersIcon,
   SettingsIcon,
+  MonitorPlayIcon,
+  SproutIcon,
+  PaletteIcon,
+  CalendarClockIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -86,6 +90,54 @@ export const StudioSidebar = () => {
                 <Link prefetch href="/studio/settings">
                   <SettingsIcon className="size-5" />
                   <span className="text-sm">Settings</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathName === "/studio/presets"}
+                tooltip="Player presets"
+                asChild
+              >
+                <Link prefetch href="/studio/presets">
+                  <MonitorPlayIcon className="size-5" />
+                  <span className="text-sm">Player presets</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathName === "/studio/growth"}
+                tooltip="Growth"
+                asChild
+              >
+                <Link prefetch href="/studio/growth">
+                  <SproutIcon className="size-5" />
+                  <span className="text-sm">Growth</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathName === "/studio/branding"}
+                tooltip="Branding"
+                asChild
+              >
+                <Link prefetch href="/studio/branding">
+                  <PaletteIcon className="size-5" />
+                  <span className="text-sm">Branding</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathName === "/studio/webinars"}
+                tooltip="Webinars"
+                asChild
+              >
+                <Link prefetch href="/studio/webinars">
+                  <CalendarClockIcon className="size-5" />
+                  <span className="text-sm">Webinars</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

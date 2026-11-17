@@ -256,15 +256,24 @@ export const videosRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
+      const set: Record<string, unknown> = {
+        title: input.title,
+        description: input.description,
+        categoryId: input.categoryId,
+        visibility: input.visibility,
+        updatedAt: new Date(),
+      };
+      if (input.requireEmail !== undefined) set.requireEmail = input.requireEmail;
+      if (input.allowDownload !== undefined) set.allowDownload = input.allowDownload;
+      if (input.endScreenType !== undefined) set.endScreenType = input.endScreenType;
+      if (input.endScreenUrl !== undefined) set.endScreenUrl = input.endScreenUrl;
+      if (input.endScreenCta !== undefined) set.endScreenCta = input.endScreenCta;
+      if (input.maturityRating !== undefined) set.maturityRating = input.maturityRating;
+      if (input.audioQuality !== undefined) set.audioQuality = input.audioQuality;
+
       const [updatedVideo] = await database
         .update(videos)
-        .set({
-          title: input.title,
-          description: input.description,
-          categoryId: input.categoryId,
-          visibility: input.visibility,
-          updatedAt: new Date(),
-        })
+        .set(set)
         .where(and(eq(videos.id, input.id), eq(videos.userId, userId)))
         .returning();
 

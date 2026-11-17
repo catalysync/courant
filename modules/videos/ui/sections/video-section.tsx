@@ -13,6 +13,7 @@ import { useSession } from "@/lib/auth-client";
 import { VideoTopRow } from "../components/video-top-row";
 import { VideoPlayer } from "../components/video-player";
 import { WatchParty } from "../components/watch-party";
+import { LeadGate } from "../components/lead-gate";
 
 interface VideoSectionProps {
   videoId: string;
@@ -133,6 +134,9 @@ const VideoSectionSuspense = ({ videoId }: VideoSectionProps) => {
 
   const canPlay = access === "owner" || access === "full" || !!verifiedSrc;
 
+  // Lead-gated videos require an email before playback (owners skip the gate).
+  const leadGated = video.requireEmail && access !== "owner";
+
   // Monetized video (rental / purchase / membership) the viewer hasn't unlocked.
   if (
     access === "full" &&
@@ -181,7 +185,7 @@ const VideoSectionSuspense = ({ videoId }: VideoSectionProps) => {
       >
         {canPlay ? (
           <VideoPlayer
-            autoPlay
+            autoPlay={!leadGated}
             onPlay={handlePlay}
             onTimeUpdate={handleTimeUpdate}
             uid={video.streamUid}
@@ -193,8 +197,23 @@ const VideoSectionSuspense = ({ videoId }: VideoSectionProps) => {
             Loading…
           </div>
         )}
+        <LeadGate video={video} />
       </div>
       <VideoBanner status={video.streamStatus} />
+      {video.endScreenType !== "none" && (
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border bg-card p-4">
+          <p className="text-sm font-medium">
+            {video.endScreenCta || "Watch next"}
+          </p>
+          {video.endScreenUrl && (
+            <Button asChild variant="secondary" size="sm">
+              <a href={video.endScreenUrl} target="_blank" rel="noreferrer">
+                {video.endScreenCta || "Watch next"}
+              </a>
+            </Button>
+          )}
+        </div>
+      )}
       <VideoTopRow video={video} />
       <div className="mt-4">
         <WatchParty

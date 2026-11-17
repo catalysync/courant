@@ -88,6 +88,15 @@ export const stream = {
     await api(`/${uid}`, { method: "DELETE" });
   },
 
+  /** Ingest a video directly from a URL (Cloudflare fetches it server-side). */
+  async uploadFromUrl(input: { url: string; creator?: string }): Promise<StreamVideo> {
+    const result = (await api("/stream", {
+      method: "POST",
+      body: JSON.stringify({ url: input.url, creator: input.creator }),
+    })) as StreamVideo;
+    return result;
+  },
+
   // ---- Live inputs ----
 
   /** Create a Stream live input (RTMP ingest). Returns uid, rtmp url/key, playback hls. */

@@ -9,7 +9,7 @@ import {
   videoEmbeddings,
   videos,
 } from "@/database/schema";
-import { embed, generateChapters, moderateText } from "@/lib/ai";
+import { embed, generateChapters, generateText, moderateText } from "@/lib/ai";
 import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { z } from "zod";
 
@@ -34,6 +34,25 @@ function cosine(a: number[], b: number[]): number {
   }
   if (!na || !nb) return 0;
   return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+/** Parse "mm:ss" / "[mm:ss]" / "hh:mm:ss" leading timestamps into timed segments. */
+function parseTranscriptSegments(text: string): { start: number; text: string }[] {
+  const segments: { start: number; text: string }[] = [];
+  for (const raw of text.split(/\n+/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(/^(?:\[)?(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\])?[\s.\-)]*(.*)$/);
+    if (m) {
+      const h = 0;
+      const min = parseInt(m[1], 10);
+      const sec = parseInt(m[2], 10);
+      segments.push({ start: h * 3600 + min * 60 + sec, text: m[4] ?? "" });
+    } else {
+      segments.push({ start: segments.length ? segments[segments.length - 1].start : 0, text: line });
+    }
+  }
+  return segments;
 }
 
 async function assertOwner(videoId: string, userId: string) {
@@ -116,7 +135,13 @@ export const aiRouter = createTRPCRouter({
       if (existing.length) {
         await database
           .update(transcripts)
-          .set({ text: input.text, source: "manual", status: "draft", updatedAt: new Date() })
+          .set({
+            text: input.text,
+            segments: JSON.stringify(parseTranscriptSegments(input.text)),
+            source: "manual",
+            status: "draft",
+            updatedAt: new Date(),
+          })
           .where(eq(transcripts.id, existing[0].id));
       } else {
         await database
@@ -125,6 +150,7 @@ export const aiRouter = createTRPCRouter({
             videoId: input.videoId,
             language: "en",
             text: input.text,
+            segments: JSON.stringify(parseTranscriptSegments(input.text)),
             source: "manual",
             status: "draft",
           });
@@ -201,5 +227,101 @@ export const aiRouter = createTRPCRouter({
     .input(z.object({ text: z.string().min(1).max(2000) }))
     .mutation(async ({ input }) => {
       return moderateText(input.text);
+    }),
+
+  // ---- search inside video (YouTube) ----
+
+  searchTranscript: baseProcedure
+    .input(z.object({ videoId: z.string().uuid(), query: z.string().min(1).max(200) }))
+    .query(async ({ input }) => {
+      const [t] = await database
+        .select()
+        .from(transcripts)
+        .where(and(eq(transcripts.videoId, input.videoId), eq(transcripts.language, "en")));
+      if (!t) return { items: [] };
+
+      const q = input.query.toLowerCase();
+      let segs: { start: number; text: string }[] = [];
+      if (t.segments) {
+        try {
+          const parsed = JSON.parse(t.segments);
+          if (Array.isArray(parsed)) segs = parsed;
+        } catch {
+          /* fall through */
+        }
+      }
+      if (!segs.length) segs = parseTranscriptSegments(t.text ?? "");
+
+      const matches = segs
+        .filter((s) => s.text.toLowerCase().includes(q))
+        .slice(0, 30)
+        .map((s) => ({ startSec: s.start, snippet: s.text.slice(0, 200) }));
+
+      return { items: matches };
+    }),
+
+  /** Translate the English transcript to another language (Workers AI). */
+  translateTranscript: protectedProcedure
+    .input(
+      z.object({
+        videoId: z.string().uuid(),
+        targetLanguage: z.string().min(2).max(10), // e.g. "es", "fr", "pt"
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const video = await assertOwner(input.videoId, ctx.user.id);
+      const [source] = await database
+        .select()
+        .from(transcripts)
+        .where(and(eq(transcripts.videoId, input.videoId), eq(transcripts.language, "en")));
+      if (!source?.text) throw new TRPCError({ code: "BAD_REQUEST", message: "No transcript to translate" });
+
+      // Chunk to stay within model context, then translate each chunk.
+      const chunks = source.text.match(/[\s\S]{1,1500}/g) ?? [source.text];
+      const translated: string[] = [];
+      for (const chunk of chunks) {
+        const out = await generateText(
+          `You are a translator. Translate the following text to language code "${input.targetLanguage}". Return only the translation, no commentary.`,
+          chunk,
+        );
+        translated.push(out);
+      }
+
+      const text = translated.join("\n\n");
+      const existing = await database
+        .select({ id: transcripts.id })
+        .from(transcripts)
+        .where(and(eq(transcripts.videoId, input.videoId), eq(transcripts.language, input.targetLanguage)));
+
+      if (existing.length) {
+        await database
+          .update(transcripts)
+          .set({ text, source: "ai", status: "generated", updatedAt: new Date() })
+          .where(eq(transcripts.id, existing[0].id));
+      } else {
+        await database.insert(transcripts).values({
+          videoId: input.videoId,
+          language: input.targetLanguage,
+          text,
+          source: "ai",
+          status: "generated",
+        });
+      }
+
+      const [t] = await database
+        .select()
+        .from(transcripts)
+        .where(and(eq(transcripts.videoId, input.videoId), eq(transcripts.language, input.targetLanguage)));
+      return t;
+    }),
+
+  /** List a video's transcripts (for the subtitle/language picker). */
+  getTranscripts: baseProcedure
+    .input(z.object({ videoId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      return database
+        .select({ language: transcripts.language, status: transcripts.status, source: transcripts.source })
+        .from(transcripts)
+        .where(eq(transcripts.videoId, input.videoId));
     }),
 });

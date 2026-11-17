@@ -20,6 +20,14 @@ import { aiRouter } from "@/modules/ai/server/procedures";
 import { liveRouter } from "@/modules/live/server/procedures";
 import { paymentsRouter } from "@/modules/payments/server/procedures";
 import { playerRouter } from "@/modules/player/server/procedures";
+import { discoveryRouter } from "@/modules/discovery/server/procedures";
+import { communityRouter } from "@/modules/community/server/procedures";
+import { leadsRouter } from "@/modules/leads/server/procedures";
+import { interactiveRouter } from "@/modules/interactive/server/procedures";
+import { collabRouter } from "@/modules/collab/server/procedures";
+import { growthRouter } from "@/modules/growth/server/procedures";
+import { webinarsRouter } from "@/modules/webinars/server/procedures";
+import { brandingRouter } from "@/modules/branding/server/procedures";
 
 export const appRouter = createTRPCRouter({
   users: usersRouter,
@@ -43,6 +51,14 @@ export const appRouter = createTRPCRouter({
   live: liveRouter,
   payments: paymentsRouter,
   player: playerRouter,
+  discovery: discoveryRouter,
+  community: communityRouter,
+  leads: leadsRouter,
+  interactive: interactiveRouter,
+  collab: collabRouter,
+  growth: growthRouter,
+  webinars: webinarsRouter,
+  branding: brandingRouter,
 });
 // export type definition of API
 export type AppRouter = typeof appRouter;

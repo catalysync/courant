@@ -8,7 +8,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useSession } from "@/lib/auth-client";
-import { FlameIcon, HomeIcon, PlaySquareIcon } from "lucide-react";
+import { FlameIcon, HomeIcon, NewspaperIcon, PlaySquareIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -22,6 +22,12 @@ const items = [
     title: "Following",
     url: "/feed/subscriptions",
     icon: PlaySquareIcon,
+    auth: true,
+  },
+  {
+    title: "Following posts",
+    url: "/feed/following",
+    icon: NewspaperIcon,
     auth: true,
   },
   {

@@ -45,6 +45,9 @@ import { ThumbnailUploadModal } from "@/modules/studio/ui/components/thumbnail-u
 import { VideoPrivacyPanel } from "@/modules/studio/ui/components/video-privacy-panel";
 import { VideoAIPanel } from "@/modules/studio/ui/components/video-ai-panel";
 import { VideoMonetizationPanel } from "@/modules/studio/ui/components/video-monetization-panel";
+import { VideoControlsPanel } from "@/modules/studio/ui/components/video-controls-panel";
+import { HotspotsEditor } from "@/modules/studio/ui/components/hotspots-editor";
+import { LeadsPanel } from "@/modules/studio/ui/components/leads-panel";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
@@ -423,6 +426,15 @@ export const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
       </div>
       <div className="mt-10">
         <VideoMonetizationPanel videoId={videoId} />
+      </div>
+      <div className="mt-10">
+        <VideoControlsPanel videoId={videoId} />
+      </div>
+      <div className="mt-10">
+        <HotspotsEditor videoId={videoId} />
+      </div>
+      <div className="mt-10">
+        <LeadsPanel videoId={videoId} />
       </div>
     </Form>
   );

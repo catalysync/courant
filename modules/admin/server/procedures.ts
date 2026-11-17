@@ -158,6 +158,19 @@ export const adminRouter = createTRPCRouter({
       return updated;
     }),
 
+  /** Toggle a video's featured flag (powers the home hero carousel). */
+  setFeatured: adminProcedure
+    .input(z.object({ videoId: z.string().uuid(), featured: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const [updated] = await database
+        .update(videos)
+        .set({ isFeatured: input.featured })
+        .where(eq(videos.id, input.videoId))
+        .returning();
+      if (!updated) throw new TRPCError({ code: "NOT_FOUND" });
+      return updated;
+    }),
+
   removeVideo: adminProcedure
     .input(z.object({ videoId: z.string().uuid() }))
     .mutation(async ({ input }) => {

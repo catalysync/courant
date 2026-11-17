@@ -77,6 +77,27 @@ export function applyRemoteState(t: number, playing: boolean) {
   for (const l of playingListeners) l(playing);
 }
 
+// ---- playback rate ----
+
+let playbackRate = 1;
+const rateListeners = new Set<(r: number) => void>();
+
+export function getPlaybackRate() {
+  return playbackRate;
+}
+
+export function requestPlaybackRate(r: number) {
+  playbackRate = r;
+  for (const l of rateListeners) l(r);
+}
+
+export function subscribePlaybackRate(l: (r: number) => void) {
+  rateListeners.add(l);
+  return () => {
+    rateListeners.delete(l);
+  };
+}
+
 export function formatTime(seconds: number) {
   const s = Math.max(0, Math.floor(seconds));
   const m = Math.floor(s / 60);

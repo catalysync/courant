@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/trpc/client";
-import { CopyIcon, Loader2Icon, RadioIcon } from "lucide-react";
+import { CopyIcon, Loader2Icon, RadioIcon, Trash2Icon } from "lucide-react";
 import { Suspense, useState } from "react";
 import { toast } from "sonner";
 
@@ -158,6 +158,8 @@ const LiveModalContent = () => {
         </div>
       </div>
 
+      <SimulcastSection liveId={myLive.id} />
+
       <DialogFooter>
         <Button
           variant="destructive"
@@ -195,5 +197,86 @@ const CopyButton = ({ value }: { value: string }) => {
     >
       <CopyIcon />
     </Button>
+  );
+};
+
+const SimulcastSection = ({ liveId }: { liveId: string }) => {
+  const trpcUtils = trpc.useUtils();
+  const [destinations] = trpc.live.getSimulcast.useSuspenseQuery({ liveId });
+  const [name, setName] = useState("");
+  const [rtmpUrl, setRtmpUrl] = useState("");
+  const [streamKey, setStreamKey] = useState("");
+
+  const add = trpc.live.addSimulcast.useMutation({
+    onSuccess: () => {
+      toast.success("Destination added");
+      setName("");
+      setRtmpUrl("");
+      setStreamKey("");
+      trpcUtils.live.getSimulcast.invalidate({ liveId });
+    },
+    onError: (e) => toast.error(e.message || "Could not add destination"),
+  });
+  const remove = trpc.live.removeSimulcast.useMutation({
+    onSuccess: () => trpcUtils.live.getSimulcast.invalidate({ liveId }),
+  });
+
+  return (
+    <div className="flex flex-col gap-2 border-t pt-3">
+      <p className="text-sm font-medium">Simulcast to other platforms</p>
+      {destinations.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {destinations.map((d) => (
+            <div
+              key={d.id}
+              className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5"
+            >
+              <span className="truncate text-sm">{d.name}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={() => remove.mutate({ id: d.id })}
+              >
+                <Trash2Icon className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-2">
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Platform (e.g. YouTube)"
+          maxLength={60}
+        />
+        <Input
+          value={rtmpUrl}
+          onChange={(e) => setRtmpUrl(e.target.value)}
+          placeholder="RTMP server URL"
+        />
+        <Input
+          value={streamKey}
+          onChange={(e) => setStreamKey(e.target.value)}
+          placeholder="Stream key"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={add.isPending || !name || !rtmpUrl || !streamKey}
+          onClick={() => add.mutate({ liveId, name, rtmpUrl, streamKey })}
+        >
+          {add.isPending && <Loader2Icon className="size-4 animate-spin" />}
+          Add destination
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Add each platform&rsquo;s RTMP details here, then stream to them from your
+        encoder (OBS) alongside your Courant ingest.
+      </p>
+    </div>
   );
 };

@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, getTableColumns, ne } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, ne } from "drizzle-orm";
 import { z } from "zod";
 
 import { database } from "@/database";
-import { liveStreams, subscriptions, user } from "@/database/schema";
+import { liveStreams, simulcastDestinations, subscriptions, user } from "@/database/schema";
 import { stream } from "@/lib/stream";
 import { createNotification } from "@/modules/notifications/server/procedures";
 import { baseProcedure, createTRPCRouter, protectedProcedure } from "@/trpc/init";
@@ -115,5 +115,52 @@ export const liveRouter = createTRPCRouter({
         .where(eq(liveStreams.id, input.id))
         .returning();
       return updated;
+    }),
+
+  // ---- simulcasting (Vimeo multi-destination) ----
+
+  getSimulcast: baseProcedure
+    .input(z.object({ liveId: z.string().uuid() }))
+    .query(async ({ input }) => {
+      return database
+        .select()
+        .from(simulcastDestinations)
+        .where(eq(simulcastDestinations.liveStreamId, input.liveId))
+        .orderBy(asc(simulcastDestinations.name));
+    }),
+
+  addSimulcast: protectedProcedure
+    .input(
+      z.object({
+        liveId: z.string().uuid(),
+        name: z.string().min(1).max(60),
+        rtmpUrl: z.string().min(1),
+        streamKey: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [row] = await database
+        .select()
+        .from(liveStreams)
+        .where(and(eq(liveStreams.id, input.liveId), eq(liveStreams.creatorId, ctx.user.id)));
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const [d] = await database
+        .insert(simulcastDestinations)
+        .values({
+          liveStreamId: input.liveId,
+          name: input.name,
+          rtmpUrl: input.rtmpUrl,
+          streamKey: input.streamKey,
+        })
+        .returning();
+      return d;
+    }),
+
+  removeSimulcast: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await database.delete(simulcastDestinations).where(eq(simulcastDestinations.id, input.id));
+      return { ok: true };
     }),
 });

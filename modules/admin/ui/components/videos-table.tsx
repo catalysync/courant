@@ -8,6 +8,7 @@ import Link from "next/link";
 import { trpc } from "@/trpc/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -34,6 +35,14 @@ export const VideosTable = () => {
     onSuccess: () => {
       utils.admin.listVideos.invalidate();
       toast.success("Visibility updated");
+    },
+    onError: () => toast.error("Something went wrong"),
+  });
+
+  const setFeatured = trpc.admin.setFeatured.useMutation({
+    onSuccess: () => {
+      utils.admin.listVideos.invalidate();
+      toast.success("Featured updated");
     },
     onError: () => toast.error("Something went wrong"),
   });
@@ -73,13 +82,14 @@ export const VideosTable = () => {
               <TableHead>Views</TableHead>
               <TableHead>Likes</TableHead>
               <TableHead>Comments</TableHead>
+              <TableHead>Featured</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10">
+                <TableCell colSpan={9} className="text-center py-10">
                   <Loader2Icon className="size-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
@@ -127,6 +137,15 @@ export const VideosTable = () => {
                   <TableCell>{v.viewCount}</TableCell>
                   <TableCell>{v.likeCount}</TableCell>
                   <TableCell>{v.commentCount}</TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={v.isFeatured}
+                      onCheckedChange={(checked) =>
+                        setFeatured.mutate({ videoId: v.id, featured: checked })
+                      }
+                      aria-label="Featured"
+                    />
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button
                       size="sm"
@@ -145,7 +164,7 @@ export const VideosTable = () => {
               ))}
             {!isLoading && data && data.items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
                   No videos found.
                 </TableCell>
               </TableRow>

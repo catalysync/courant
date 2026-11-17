@@ -197,6 +197,15 @@ export const videos = sqliteTable("videos", {
   monetizationType: text("monetization_type").notNull().default("free"),
   priceCents: integer("price_cents").notNull().default(0),
   allowEmbed: integer("allow_embed", { mode: "boolean" }).notNull().default(true),
+  // ---- Phase 3 (launch) ----
+  isFeatured: integer("is_featured", { mode: "boolean" }).notNull().default(false),
+  requireEmail: integer("require_email", { mode: "boolean" }).notNull().default(false),
+  allowDownload: integer("allow_download", { mode: "boolean" }).notNull().default(false),
+  endScreenType: text("end_screen_type").notNull().default("none"), // none | link | cta
+  endScreenUrl: text("end_screen_url"),
+  endScreenCta: text("end_screen_cta"),
+  maturityRating: text("maturity_rating").notNull().default("general"), // general | mature
+  audioQuality: text("audio_quality").notNull().default("standard"), // standard | high
   createdAt: ts("created_at"),
   updatedAt: ts("updated_at"),
 });
@@ -686,3 +695,255 @@ export const creatorSettings = sqliteTable(
 export const creatorSettingsSelectSchema = createSelectSchema(creatorSettings);
 export const creatorSettingsInsertSchema = createInsertSchema(creatorSettings);
 export const creatorSettingsUpdateSchema = createUpdateSchema(creatorSettings);
+
+// ---- Phase 3: launch features ---------------------------------------------
+
+// Shareable clip of a video segment (YouTube Clips).
+export const clips = sqliteTable(
+  "clips",
+  {
+    id: uuidPk(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    creatorId: text("creator_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title"),
+    startSec: real("start_sec").notNull(),
+    endSec: real("end_sec").notNull(),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("clips_video_idx").on(t.videoId)],
+);
+
+export const postType = ["text", "poll", "image"] as const;
+
+// Channel community posts (YouTube community tab).
+export const posts = sqliteTable(
+  "posts",
+  {
+    id: uuidPk(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    videoId: text("video_id").references(() => videos.id, { onDelete: "set null" }),
+    type: text("type").notNull().default("text"),
+    text: text("text"),
+    imageKey: text("image_key"),
+    pollOptions: text("poll_options"), // JSON string[]
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+  (t) => [index("posts_user_idx").on(t.userId)],
+);
+
+export const postReactions = sqliteTable(
+  "post_reactions",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    postId: text("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // like | dislike
+    createdAt: ts("created_at"),
+  },
+  (t) => [primaryKey({ name: "post_reactions_pk", columns: [t.userId, t.postId] })],
+);
+
+// Captured leads (Wistia Turnstile email-gate).
+export const leads = sqliteTable(
+  "leads",
+  {
+    id: uuidPk(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    name: text("name"),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("leads_video_idx").on(t.videoId), index("leads_user_idx").on(t.userId)],
+);
+
+// Clickable in-video hotspots (Vimeo).
+export const hotspots = sqliteTable(
+  "hotspots",
+  {
+    id: uuidPk(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    startSec: real("start_sec").notNull(),
+    endSec: real("end_sec"),
+    label: text("label").notNull(),
+    url: text("url"),
+    color: text("color").notNull().default("#3b82f6"),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("hotspots_video_idx").on(t.videoId)],
+);
+
+// Saved player presets (Vimeo player presets).
+export const playerPresets = sqliteTable(
+  "player_presets",
+  {
+    id: uuidPk(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    primaryColor: text("primary_color").notNull().default("#3b82f6"),
+    watermarkText: text("watermark_text"),
+    showWatermark: integer("show_watermark", { mode: "boolean" }).notNull().default(false),
+    autoPlay: integer("auto_play", { mode: "boolean" }).notNull().default(false),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("player_presets_user_idx").on(t.userId)],
+);
+
+// Collaborative playlists (YouTube multi-user playlists).
+export const playlistMembers = sqliteTable(
+  "playlist_members",
+  {
+    playlistId: text("playlist_id")
+      .notNull()
+      .references(() => playlists.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role").notNull().default("editor"), // editor | viewer
+    createdAt: ts("created_at"),
+  },
+  (t) => [
+    primaryKey({ name: "playlist_members_pk", columns: [t.playlistId, t.userId] }),
+  ],
+);
+
+// Viewer "saved for offline" queue (PWA offline).
+export const offlineDownloads = sqliteTable(
+  "offline_downloads",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    createdAt: ts("created_at"),
+  },
+  (t) => [primaryKey({ name: "offline_downloads_pk", columns: [t.userId, t.videoId] })],
+);
+
+// RSS / MRSS feed sources (Dailymotion ingest).
+export const feedSources = sqliteTable(
+  "feed_sources",
+  {
+    id: uuidPk(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    categoryId: text("category_id").references(() => categories.id, { onDelete: "set null" }),
+    lastFetchedAt: integer("last_fetched_at", { mode: "timestamp_ms" }),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("feed_sources_user_idx").on(t.userId)],
+);
+
+// Thumbnail/title A/B experiments (Wistia A/B testing).
+export const experiments = sqliteTable(
+  "experiments",
+  {
+    id: uuidPk(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    variantA: text("variant_a"), // JSON { title?, thumbnailKey? }
+    variantB: text("variant_b"), // JSON { title?, thumbnailKey? }
+    viewsA: integer("views_a").notNull().default(0),
+    viewsB: integer("views_b").notNull().default(0),
+    status: text("status").notNull().default("running"), // running | ended
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("experiments_video_idx").on(t.videoId)],
+);
+
+// Simulcast destinations for a live stream (Vimeo simulcasting).
+export const simulcastDestinations = sqliteTable(
+  "simulcast_destinations",
+  {
+    id: uuidPk(),
+    liveStreamId: text("live_stream_id")
+      .notNull()
+      .references(() => liveStreams.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    rtmpUrl: text("rtmp_url").notNull(),
+    streamKey: text("stream_key").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("simulcast_live_idx").on(t.liveStreamId)],
+);
+
+// Webinars (Wistia webinar engine): scheduled live + registration + recording.
+export const webinars = sqliteTable(
+  "webinars",
+  {
+    id: uuidPk(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    scheduledAt: integer("scheduled_at", { mode: "timestamp_ms" }),
+    liveStreamId: text("live_stream_id").references(() => liveStreams.id, {
+      onDelete: "set null",
+    }),
+    status: text("status").notNull().default("scheduled"), // scheduled | live | ended
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+  (t) => [index("webinars_user_idx").on(t.userId)],
+);
+
+export const webinarRegistrations = sqliteTable(
+  "webinar_registrations",
+  {
+    id: uuidPk(),
+    webinarId: text("webinar_id")
+      .notNull()
+      .references(() => webinars.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    name: text("name"),
+    createdAt: ts("created_at"),
+  },
+  (t) => [index("webinar_regs_webinar_idx").on(t.webinarId)],
+);
+
+// Per-creator channel branding (OTT-style branded channel).
+export const channelBranding = sqliteTable(
+  "channel_branding",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    brandName: text("brand_name"),
+    brandColor: text("brand_color").notNull().default("#3b82f6"),
+    tagline: text("tagline"),
+    logoKey: text("logo_key"),
+    createdAt: ts("created_at"),
+    updatedAt: ts("updated_at"),
+  },
+);
+
+export const channelBrandingSelectSchema = createSelectSchema(channelBranding);
+export const channelBrandingInsertSchema = createInsertSchema(channelBranding);
+export const channelBrandingUpdateSchema = createUpdateSchema(channelBranding);
