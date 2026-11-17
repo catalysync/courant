@@ -43,7 +43,7 @@ const LiveSectionSuspense = () => {
 const LiveCard = ({ stream }: { stream: LiveStream }) => {
   return (
     <Link
-      href={stream.playbackUrl ?? "#"}
+      href={`/live/${stream.id}`}
       className="group flex w-64 shrink-0 flex-col gap-2"
     >
       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
