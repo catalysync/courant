@@ -64,23 +64,34 @@ const ResultsSectionSuspense = ({ query, categoryId }: ResultsSectionProps) => {
     },
   );
 
+  const videos = results.pages.flatMap((page) => page.items);
+  const trimmedQuery = query?.trim();
+  const hasQuery = !!trimmedQuery;
+
+  if (hasQuery && videos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-1 py-16 text-center">
+        <p className="text-lg font-medium">No results for &quot;{trimmedQuery}&quot;</p>
+        <p className="text-sm text-muted-foreground">
+          Try different keywords or clear your search.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       {isMobile ? (
         <div className="flex flex-col gap-4 gap-y-10">
-          {results.pages
-            .flatMap((page) => page.items)
-            .map((video) => (
-              <VideoGridCard key={video.id} data={video} />
-            ))}
+          {videos.map((video) => (
+            <VideoGridCard key={video.id} data={video} />
+          ))}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {results.pages
-            .flatMap((page) => page.items)
-            .map((video) => (
-              <VideoRowCard key={video.id} data={video} size="default" />
-            ))}
+          {videos.map((video) => (
+            <VideoRowCard key={video.id} data={video} size="default" />
+          ))}
         </div>
       )}
       <InfiniteScroll

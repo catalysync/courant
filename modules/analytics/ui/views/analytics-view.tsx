@@ -161,6 +161,40 @@ export const AnalyticsView = () => {
   );
 };
 
+const ViewsOverTimeChart = ({
+  data,
+}: {
+  data: { date: string; count: number }[];
+}) => {
+  if (data.length < 2) {
+    return (
+      <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+        Not enough data
+      </div>
+    );
+  }
+
+  const first = data[0].date;
+  const last = data[data.length - 1].date;
+
+  return (
+    <div>
+      <div className="h-64">
+        <LineChart
+          data={data.map((d, i) => ({ x: i, y: d.count }))}
+          baseline={0}
+          area
+          className="h-full w-full"
+        />
+      </div>
+      <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
+        <span>{first}</span>
+        <span>{last}</span>
+      </div>
+    </div>
+  );
+};
+
 const VideoPicker = ({
   value,
   onValueChange,

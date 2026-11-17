@@ -5,6 +5,7 @@ import {
   VideoGridCardSkeleton,
 } from "@/modules/videos/ui/components/video-grid-card";
 import { trpc } from "@/trpc/client";
+import { ArrowRight, FlameIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -24,7 +25,10 @@ export const HomeTrendingSection = () => {
 const HomeTrendingSkeleton = () => {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-xl font-bold tracking-tight">Trending now</h2>
+      <div className="flex items-center gap-2">
+        <FlameIcon className="size-5 text-primary" />
+        <h2 className="text-xl font-bold tracking-tight">Trending now</h2>
+      </div>
       <div
         className="gap-4 gap-y-10 grid grid-cols-1 sm:grid-cols-2 
       lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4
@@ -58,12 +62,16 @@ const HomeTrendingSectionSuspense = () => {
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold tracking-tight">Trending now</h2>
+        <div className="flex items-center gap-2">
+          <FlameIcon className="size-5 text-primary" />
+          <h2 className="text-xl font-bold tracking-tight">Trending now</h2>
+        </div>
         <Link
           href="/feed/trending"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          className="group flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
-          View all
+          See all
+          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </div>
       <div

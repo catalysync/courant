@@ -1,11 +1,14 @@
 "use client";
 
+import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { useSession } from "@/lib/auth-client";
 import { VideoThumbnail } from "@/modules/videos/ui/components/video-thumbnail";
 import { trpc } from "@/trpc/client";
 import type { AppRouter } from "@/trpc/routers/_app";
 import { inferRouterOutputs } from "@trpc/server";
+import { UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -44,25 +47,34 @@ const HomeSubscriptionsSectionSuspense = () => {
 
   const items = feed.pages.flatMap((page) => page.items);
 
-  if (items.length === 0) {
-    return null;
-  }
-
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-xl font-bold tracking-tight">
         New from your subscriptions
       </h2>
-      <div
-        className="gap-4 gap-y-10 grid grid-cols-1 sm:grid-cols-2 
+      {items.length === 0 ? (
+        <EmptyState
+          icon={UsersIcon}
+          title="No new uploads yet"
+          description="Subscribe to channels to see their new uploads here."
+          action={
+            <Button asChild variant="secondary">
+              <Link href="/subscriptions">Browse channels</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <div
+          className="gap-4 gap-y-10 grid grid-cols-1 sm:grid-cols-2 
       lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4
       [@media(min-width:1920px):grid-cols-5 [@media(min-width:2200px):grid-cols-6]
       "
-      >
-        {items.map((video) => (
-          <SubscriptionCard key={video.id} video={video} />
-        ))}
-      </div>
+        >
+          {items.map((video) => (
+            <SubscriptionCard key={video.id} video={video} />
+          ))}
+        </div>
+      )}
     </section>
   );
 };

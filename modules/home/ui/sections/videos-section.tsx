@@ -1,6 +1,8 @@
 "use client";
 
+import { EmptyState } from "@/components/empty-state";
 import { InfiniteScroll } from "@/components/infinite-scroll";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { videos } from "@/database/schema";
 import { PAGE_DEFAULT_LIMIT } from "@/lib/constants";
@@ -9,6 +11,8 @@ import {
   VideoGridCardSkeleton,
 } from "@/modules/videos/ui/components/video-grid-card";
 import { trpc } from "@/trpc/client";
+import { VideoIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -54,6 +58,23 @@ const VideosSectionSuspense = ({ categoryId }: VideosSectionProps) => {
     },
   );
 
+  const items = videos.pages.flatMap((page) => page.items);
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={VideoIcon}
+        title="No videos yet"
+        description="Be the first to publish — or explore Trending."
+        action={
+          <Button asChild variant="secondary">
+            <Link href="/feed/trending">Browse trending</Link>
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div>
       <div
@@ -62,11 +83,9 @@ const VideosSectionSuspense = ({ categoryId }: VideosSectionProps) => {
       [@media(min-width:1920px):grid-cols-5 [@media(min-width:2200px):grid-cols-6]
       "
       >
-        {videos.pages
-          .flatMap((page) => page.items)
-          .map((video) => (
-            <VideoGridCard key={video.id} data={video} />
-          ))}
+        {items.map((video) => (
+          <VideoGridCard key={video.id} data={video} />
+        ))}
       </div>
       <InfiniteScroll
         hasNextPage={query.hasNextPage}
