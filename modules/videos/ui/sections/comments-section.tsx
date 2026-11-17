@@ -44,6 +44,8 @@ const CommentsSectionSuspense = ({ videoId }: CommentsSectionProps) => {
     },
   );
 
+  const [video] = trpc.videos.getOne.useSuspenseQuery({ id: videoId });
+
   return (
     <div className="mt-6">
       <div className="flex flex-col gap-6">
@@ -51,7 +53,7 @@ const CommentsSectionSuspense = ({ videoId }: CommentsSectionProps) => {
         <CommentForm videoId={videoId} />
         <div className="flex flex-col gap-4 mt-2">
           {comments.pages.flatMap((page) => page.items).map((comment) => (
-            <CommentItem key={comment.id} comment={comment} />
+            <CommentItem key={comment.id} comment={comment} videoOwnerId={video.userId} />
           ))}
           <InfiniteScroll
             isManual

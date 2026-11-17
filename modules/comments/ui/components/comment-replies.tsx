@@ -11,9 +11,10 @@ import { CommentItem } from "./comment-item";
 interface CommentRepliesProps {
   parentId: string;
   videoId: string;
+  videoOwnerId?: string | null;
 }
 
-export const CommentReplies = ({ parentId, videoId }: CommentRepliesProps) => {
+export const CommentReplies = ({ parentId, videoId, videoOwnerId }: CommentRepliesProps) => {
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
     trpc.comments.getMany.useInfiniteQuery(
       {
@@ -38,7 +39,12 @@ export const CommentReplies = ({ parentId, videoId }: CommentRepliesProps) => {
           data?.pages
             .flatMap((page) => page.items)
             .map((comment) => (
-              <CommentItem key={comment.id} comment={comment} variant="reply" />
+              <CommentItem
+                key={comment.id}
+                comment={comment}
+                variant="reply"
+                videoOwnerId={videoOwnerId}
+              />
             ))}
       </div>
       {hasNextPage && (

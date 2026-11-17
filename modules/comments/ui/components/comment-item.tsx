@@ -11,6 +11,9 @@ import {
   Clock3Icon,
   MessageSquareIcon,
   MoreVerticalIcon,
+  PencilIcon,
+  PinIcon,
+  PinOffIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
   Trash2Icon,
@@ -20,11 +23,13 @@ import { cn } from "@/lib/utils";
 import { trpc } from "@/trpc/client";
 import { formatTime, requestSeek } from "@/lib/playback-time";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/lib/auth-client";
@@ -36,9 +41,14 @@ import { CommentsGetManyOutput } from "../../types";
 interface CommentItemProps {
   comment: CommentsGetManyOutput["items"][number];
   variant?: "reply" | "comment";
+  videoOwnerId?: string | null;
 }
 
-export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) => {
+export const CommentItem = ({
+  comment,
+  variant = "comment",
+  videoOwnerId,
+}: CommentItemProps) => {
   const router = useRouter();
   const { data: session } = useSession();
   const userId = session?.user?.id;
@@ -49,12 +59,43 @@ export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) 
 
   const [isReplyOpen, setIsReplyOpen] = useState(false);
   const [isRepliesOpen, setIsRepliesOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(comment.value);
+
+  const isOwner = userId === comment.user.id;
+  const isVideoOwner = !!userId && userId === videoOwnerId;
 
   const utils = trpc.useUtils();
 
   const remove = trpc.comments.remove.useMutation({
     onSuccess: () => {
       toast.success("Comment deleted");
+      utils.comments.getMany.invalidate({ videoId: comment.videoId });
+    },
+    onError: (error) => {
+      toast.error("Something went wrong");
+      if (error.data?.code === "UNAUTHORIZED") {
+        router.push("/sign-in");
+      }
+    },
+  });
+
+  const edit = trpc.comments.edit.useMutation({
+    onSuccess: () => {
+      toast.success("Comment updated");
+      setIsEditing(false);
+      utils.comments.getMany.invalidate({ videoId: comment.videoId });
+    },
+    onError: (error) => {
+      toast.error("Something went wrong");
+      if (error.data?.code === "UNAUTHORIZED") {
+        router.push("/sign-in");
+      }
+    },
+  });
+
+  const togglePin = trpc.comments.togglePin.useMutation({
+    onSuccess: () => {
       utils.comments.getMany.invalidate({ videoId: comment.videoId });
     },
     onError: (error) => {
@@ -108,7 +149,45 @@ export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) 
               </span>
             </div>
           </Link>
-          <p className="text-sm">{comment.value}</p>
+          {isEditing ? (
+            <div className="mt-1 flex flex-col gap-2">
+              <Textarea
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                placeholder="Edit comment..."
+                className="resize-none min-h-[60px]"
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={edit.isPending || !editValue.trim()}
+                  onClick={() => edit.mutate({ id: comment.id, value: editValue })}
+                >
+                  Save
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditValue(comment.value);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <p className="text-sm">{comment.value}</p>
+              {comment.isPinned && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
+                  <PinIcon className="size-3" />
+                  Pinned
+                </span>
+              )}
+            </div>
+          )}
           {commentTime !== null && (
             <button
               type="button"
@@ -162,11 +241,44 @@ export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) 
               <MessageSquareIcon className="size-4" />
               Reply
             </DropdownMenuItem>
-            {comment.user.id === userId && (
-              <DropdownMenuItem onClick={() => remove.mutate({ id: comment.id })}>
+            {isOwner && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setEditValue(comment.value);
+                  setIsEditing(true);
+                }}
+              >
+                <PencilIcon className="size-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
+            {isOwner && (
+              <DropdownMenuItem
+                onClick={() => {
+                  if (window.confirm("Delete this comment?")) {
+                    remove.mutate({ id: comment.id });
+                  }
+                }}
+              >
                 <Trash2Icon className="size-4" />
                 Delete
               </DropdownMenuItem>
+            )}
+            {isVideoOwner && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => togglePin.mutate({ id: comment.id })}
+                  disabled={togglePin.isPending}
+                >
+                  {comment.isPinned ? (
+                    <PinOffIcon className="size-4" />
+                  ) : (
+                    <PinIcon className="size-4" />
+                  )}
+                  {comment.isPinned ? "Unpin" : "Pin"}
+                </DropdownMenuItem>
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -198,7 +310,11 @@ export const CommentItem = ({ comment, variant = "comment" }: CommentItemProps) 
         </div>
       )}
       {comment.replyCount > 0 && variant === "comment" && isRepliesOpen && (
-        <CommentReplies parentId={comment.id} videoId={comment.videoId} />
+        <CommentReplies
+          parentId={comment.id}
+          videoId={comment.videoId}
+          videoOwnerId={videoOwnerId}
+        />
       )}
     </div>
   );

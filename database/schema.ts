@@ -269,6 +269,8 @@ export const comments = sqliteTable(
     value: text("value").notNull(),
     // Frame-accurate review comment: seconds into the video (null = plain comment).
     timestampSec: real("timestamp_sec"),
+    // Pinned by the video owner (shown above the rest).
+    isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
     createdAt: ts("created_at"),
     updatedAt: ts("updated_at"),
   },

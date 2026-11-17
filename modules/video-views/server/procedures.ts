@@ -1,9 +1,10 @@
 import { database } from "@/database";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
-import { videoViews, videoWatchEvents } from "@/database/schema";
+import { videoViews, videoWatchEvents, videos } from "@/database/schema";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { getRequestMeta } from "@/lib/request-meta";
+import { user } from "@/database/schema";
 
 export const videoViewsRouter = createTRPCRouter({
   create: protectedProcedure
@@ -62,5 +63,57 @@ export const videoViewsRouter = createTRPCRouter({
         .returning();
 
       return event;
+    }),
+
+  /** The viewer's last playback position for a video (seconds), for resume. */
+  getResumePosition: protectedProcedure
+    .input(z.object({ videoId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [row] = await database
+        .select({ last: sql<number>`MAX(${videoWatchEvents.watchSeconds})` })
+        .from(videoWatchEvents)
+        .where(and(eq(videoWatchEvents.userId, ctx.user.id), eq(videoWatchEvents.videoId, input.videoId)));
+      return Math.max(0, Math.floor(row?.last ?? 0));
+    }),
+
+  /** In-progress videos for the "Continue watching" rail. */
+  getContinueWatching: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(30).default(20) }))
+    .query(async ({ ctx, input }) => {
+      const rows = await database
+        .select({
+          videoId: videoWatchEvents.videoId,
+          watchSeconds: sql<number>`MAX(${videoWatchEvents.watchSeconds})`,
+          totalSeconds: sql<number>`MAX(${videoWatchEvents.totalSeconds})`,
+          lastWatchedAt: sql<number>`MAX(${videoWatchEvents.createdAt})`,
+        })
+        .from(videoWatchEvents)
+        .where(eq(videoWatchEvents.userId, ctx.user.id))
+        .groupBy(videoWatchEvents.videoId)
+        .orderBy(desc(sql`MAX(${videoWatchEvents.createdAt})`))
+        .limit(input.limit * 2);
+
+      const inProgress = rows.filter(
+        (r) => Number(r.watchSeconds) >= 5 && Number(r.watchSeconds) < Number(r.totalSeconds) * 0.95,
+      );
+      if (!inProgress.length) return { items: [] };
+
+      const ids = inProgress.map((r) => r.videoId);
+      const vids = await database
+        .select({ ...getTableColumns(videos), user })
+        .from(videos)
+        .innerJoin(user, eq(videos.userId, user.id))
+        .where(and(inArray(videos.id, ids), eq(videos.visibility, "public")));
+
+      const byId = new Map(vids.map((v) => [v.id, v]));
+      const items = inProgress
+        .map((r) => {
+          const v = byId.get(r.videoId);
+          return v ? { ...v, resumeSeconds: Number(r.watchSeconds), totalSeconds: Number(r.totalSeconds) } : null;
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+        .slice(0, input.limit);
+
+      return { items };
     }),
 });

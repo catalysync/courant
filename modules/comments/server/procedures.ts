@@ -16,6 +16,7 @@ import {
   desc,
   eq,
   getTableColumns,
+  inArray,
   isNotNull,
   isNull,
   lt,
@@ -24,6 +25,62 @@ import {
 } from "drizzle-orm";
 
 export const commentsRouter = createTRPCRouter({
+  edit: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        value: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { id, value } = input;
+      const { id: userId } = ctx.user;
+
+      const [updatedComment] = await database
+        .update(comments)
+        .set({ value, updatedAt: new Date() })
+        .where(and(eq(comments.id, id), eq(comments.userId, userId)))
+        .returning();
+
+      if (!updatedComment) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      return updatedComment;
+    }),
+  togglePin: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { id } = input;
+      const { id: userId } = ctx.user;
+
+      // Only the video owner may pin/unpin.
+      const [comment] = await database
+        .select({ videoUserId: videos.userId, isPinned: comments.isPinned })
+        .from(comments)
+        .innerJoin(videos, eq(comments.videoId, videos.id))
+        .where(eq(comments.id, id));
+
+      if (!comment) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (comment.videoUserId !== userId) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+
+      const [updatedComment] = await database
+        .update(comments)
+        .set({ isPinned: !comment.isPinned, updatedAt: new Date() })
+        .where(eq(comments.id, id))
+        .returning();
+
+      return updatedComment;
+    }),
   remove: protectedProcedure
     .input(
       z.object({
@@ -108,6 +165,44 @@ export const commentsRouter = createTRPCRouter({
               userId: video.userId,
               actorId: userId,
               type: "new_comment",
+              videoId,
+              commentId: createdComment.id,
+            });
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
+
+      // @mentions: notify mentioned users (video owner or commenters).
+      try {
+        const mentionedUsernames = Array.from(
+          new Set(
+            Array.from(value.matchAll(/@(\w[\w.]*)/g)).map((match) => match[1]),
+          ),
+        );
+
+        if (mentionedUsernames.length > 0) {
+          const [video] = await database
+            .select({ userId: videos.userId })
+            .from(videos)
+            .where(eq(videos.id, videoId));
+          const videoOwnerId = video?.userId;
+
+          const matchedUsers = await database
+            .select({ id: user.id })
+            .from(user)
+            .where(inArray(user.username, mentionedUsernames));
+
+          for (const matched of matchedUsers) {
+            if (matched.id === userId) continue; // skip self
+            // Skip the owner when they were already notified via new_comment.
+            if (matched.id === videoOwnerId && !parentId) continue;
+
+            await createNotification({
+              userId: matched.id,
+              actorId: userId,
+              type: "mention",
               videoId,
               commentId: createdComment.id,
             });

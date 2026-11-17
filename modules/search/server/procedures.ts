@@ -66,4 +66,29 @@ export const searchRouter = createTRPCRouter({
 
       return { items, nextCursor };
     }),
+
+  suggest: baseProcedure
+    .input(
+      z.object({
+        query: z.string(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const videosList = await database
+        .select({
+          id: videos.id,
+          title: videos.title,
+        })
+        .from(videos)
+        .where(
+          and(
+            eq(videos.visibility, "public"),
+            eq(videos.isUnlisted, false),
+            like(videos.title, `%${input.query}%`),
+          ),
+        )
+        .limit(8);
+
+      return videosList;
+    }),
 });

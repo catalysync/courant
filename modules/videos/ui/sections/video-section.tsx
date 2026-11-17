@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { LockIcon, KeyIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/trpc/client";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { VideoBanner } from "../components/video-banner";
 import { useSession } from "@/lib/auth-client";
@@ -15,6 +15,7 @@ import { VideoPlayer } from "../components/video-player";
 import { WatchParty } from "../components/watch-party";
 import { ErrorState } from "@/components/error-state";
 import { LeadGate } from "../components/lead-gate";
+import { requestSeek } from "@/lib/playback-time";
 
 interface VideoSectionProps {
   videoId: string;
@@ -68,6 +69,20 @@ const VideoSectionSuspense = ({ videoId }: VideoSectionProps) => {
       window.location.href = data.url;
     },
   });
+
+  // Resume playback from the viewer's last position.
+  const { data: resumePos } = trpc.videoViews.getResumePosition.useQuery(
+    { videoId },
+    { enabled: isSignedIn && (access === "full" || access === "owner") },
+  );
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current) return;
+    if (resumePos && resumePos > 5) {
+      resumedRef.current = true;
+      requestSeek(resumePos);
+    }
+  }, [resumePos]);
 
   const handlePlay = () => {
     if (!isSignedIn) return;
